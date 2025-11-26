@@ -7,7 +7,7 @@ interface CameraViewProps {
 
 const CameraView = ({ cameraNumber, controlNumber }: CameraViewProps) => {
   return (
-    <div className="bg-secondary/30 rounded-lg p-3 border border-border h-full flex flex-col">
+    <div className="bg-secondary/30 rounded-lg p-3 border-2 border-black h-full flex flex-col">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-sm font-semibold">
           Câmera {cameraNumber} - Controle {controlNumber}
