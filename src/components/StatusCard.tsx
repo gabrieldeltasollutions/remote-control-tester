@@ -13,11 +13,11 @@ const StatusCard = ({ title, value, variant = "default", subtitle }: StatusCardP
   };
 
   return (
-    <div className="bg-card rounded-lg p-6 border border-border">
-      <h3 className="text-sm font-medium text-muted-foreground mb-3">{title}</h3>
-      <p className={`text-6xl font-bold ${getValueColor()}`}>{value}</p>
+    <div className="bg-card rounded-lg p-4 border border-border">
+      <h3 className="text-xs font-medium text-muted-foreground mb-2">{title}</h3>
+      <p className={`text-5xl font-bold ${getValueColor()}`}>{value}</p>
       {subtitle && (
-        <p className="text-xs text-muted-foreground mt-2 break-all">{subtitle}</p>
+        <p className="text-[10px] text-muted-foreground mt-2 break-all leading-tight">{subtitle}</p>
       )}
     </div>
   );
