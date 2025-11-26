@@ -23,7 +23,7 @@ const CameraView = ({ cameraNumber, controlNumber }: CameraViewProps) => {
     ">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-sm font-semibold">
-          Câmera {cameraNumber} - Controle {controlNumber}
+          Câmera {cameraNumber} - Controle2 {controlNumber}
         </h2>
         <Button variant="default" size="sm" className="text-xs h-7">
           Rotacionar
