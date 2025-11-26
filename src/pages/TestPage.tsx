@@ -1,4 +1,4 @@
-import Sidebar from "@/components/Sidebar";
+// import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import StatusCard from "@/components/StatusCard";
 import ControlPanel from "@/components/ControlPanel";
@@ -10,7 +10,7 @@ import InfoPanel from "@/components/InfoPanel";
 const TestPage = () => {
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      {/* <Sidebar /> */}
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
