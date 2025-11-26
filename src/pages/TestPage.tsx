@@ -15,7 +15,8 @@ const TestPage = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
         
-        <main className="flex-1 overflow-auto bg-background p-4">
+       <main className="flex-1 overflow-auto" style={{ backgroundColor: "hsla(0, 0%, 89%, 1.00)" }} p-4>
+
           <div className="grid grid-cols-12 gap-4 h-full">
             {/* Left Section - Stats and Remote Controls */}
             <div className="col-span-5 space-y-4">
@@ -26,7 +27,7 @@ const TestPage = () => {
                     title="Aprovado" 
                     value={0} 
                     variant="success"
-                    subtitle="Câmera 1: @device:pnp:\\?\usb#vid_5986&pid_2137&mi_00#6&27466063&0&0000 #{65e8773d-8f56-11d0-a3b9-00a0c9223196}\global"
+                    subtitle=""
                   />
                   <StatusCard 
                     title="Reprovado" 
