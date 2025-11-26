@@ -7,7 +7,7 @@ interface CameraViewProps {
 
 const CameraView = ({ cameraNumber, controlNumber }: CameraViewProps) => {
   return (
-    <div className="bg-secondary/30 rounded-lg p-3 border border-border">
+    <div className="bg-secondary/30 rounded-lg p-3 border border-border h-full flex flex-col">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-sm font-semibold">
           Câmera {cameraNumber} - Controle {controlNumber}
@@ -16,7 +16,7 @@ const CameraView = ({ cameraNumber, controlNumber }: CameraViewProps) => {
           Rotacionar
         </Button>
       </div>
-      <div className="bg-muted rounded h-40 flex items-center justify-center">
+      <div className="bg-muted rounded flex-1 flex items-center justify-center">
         <p className="text-muted-foreground text-sm">Visualização da Câmera</p>
       </div>
     </div>
