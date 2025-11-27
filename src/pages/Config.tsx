@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RBSButton, RBSTextBox, RBSGroupBox, RBSSelect, RBSCircularBtn } from '@/components/RBSUi';
 import { Image as ImageIcon, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Camera, Video, Crop, Save, Upload } from 'lucide-react';
-import { sendCommand } from '@/services/api';
+import { sendCommand, getSerialPorts, connectPort, disconnectPort } from '@/services/api';
 
 // Componente de Grid Personalizado para o Fundo Azul Escuro
 const DarkBlueGrid = () => (
@@ -57,7 +57,18 @@ const Config = () => {
     port1: false,
     port2: false,
     port3: false,
+    port4: false,
   });
+
+  // Estados para portas seriais disponíveis
+  const [availablePorts, setAvailablePorts] = useState([]);
+  const [selectedPorts, setSelectedPorts] = useState({
+    port1: '',
+    port2: '',
+    port3: '',
+    port4: '',
+  });
+  const [isLoadingPorts, setIsLoadingPorts] = useState(false);
 
   // Dados IR recebidos
   const [irData, setIrData] = useState('');
@@ -68,6 +79,69 @@ const Config = () => {
     port2: '',
     port3: '',
   });
+
+  // Função para carregar portas seriais disponíveis
+  const loadSerialPorts = async () => {
+    setIsLoadingPorts(true);
+    try {
+      const response = await getSerialPorts();
+      setAvailablePorts(response.ports || []);
+      console.log(`Encontradas ${response.count || 0} portas seriais:`, response.ports);
+    } catch (error) {
+      console.error('Erro ao carregar portas seriais:', error);
+      setAvailablePorts([]);
+    } finally {
+      setIsLoadingPorts(false);
+    }
+  };
+
+  // Função para conectar uma porta
+  const handleConnectPort = async (portNumber) => {
+    const selectedPort = selectedPorts[`port${portNumber}`];
+    
+    if (!selectedPort) {
+      alert('Por favor, selecione uma porta serial');
+      return;
+    }
+
+    try {
+      const response = await connectPort(portNumber, selectedPort);
+      
+      if (response.status === 'success') {
+        setPortConnections(prev => ({
+          ...prev,
+          [`port${portNumber}`]: true
+        }));
+        console.log(`Porta ${portNumber} conectada: ${selectedPort}`);
+      }
+    } catch (error) {
+      console.error(`Erro ao conectar porta ${portNumber}:`, error);
+      alert(`Erro ao conectar porta ${portNumber}: ${error.message}`);
+    }
+  };
+
+  // Função para desconectar uma porta
+  const handleDisconnectPort = async (portNumber) => {
+    try {
+      const response = await disconnectPort(portNumber);
+      
+      if (response.status === 'success') {
+        setPortConnections(prev => ({
+          ...prev,
+          [`port${portNumber}`]: false
+        }));
+        console.log(`Porta ${portNumber} desconectada`);
+      }
+    } catch (error) {
+      console.error(`Erro ao desconectar porta ${portNumber}:`, error);
+      alert(`Erro ao desconectar porta ${portNumber}: ${error.message}`);
+    }
+  };
+
+  // Carregar portas ao montar o componente
+  useEffect(() => {
+    loadSerialPorts();
+  }, []);
 
   // Função auxiliar para filtrar dados IR
   const filterIRData = (data) => {
@@ -243,14 +317,64 @@ const Config = () => {
                     <div className="grid grid-cols-4 gap-2">
                     {[1, 2, 3, 4].map(num => (
                         <div key={num} className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between"><label className="font-bold text-[#014E7F]">Porta {num}:</label><RBSSelect><option>COM{num}</option></RBSSelect></div>
-                        <div className="flex items-center justify-between"><label className="font-bold text-[#014E7F]">Taxa:</label><RBSSelect><option>115200</option></RBSSelect></div>
-                        <RBSButton className="h-6 text-[10px]">Conectar</RBSButton>
+                        <div className="flex items-center justify-between">
+                            <label className="font-bold text-[#014E7F]">Porta {num}:</label>
+                            <RBSSelect 
+                                value={selectedPorts[`port${num}`]}
+                                onChange={(e) => setSelectedPorts(prev => ({
+                                    ...prev,
+                                    [`port${num}`]: e.target.value
+                                }))}
+                                disabled={portConnections[`port${num}`]}
+                            >
+                                <option value="">Selecione...</option>
+                                {availablePorts.map((port, index) => (
+                                    <option key={index} value={port.device}>
+                                        {port.device}
+                                    </option>
+                                ))}
+                            </RBSSelect>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <label className="font-bold text-[#014E7F]">Taxa:</label>
+                            <RBSSelect>
+                                <option>{num === 3 ? '9600' : '115200'}</option>
+                            </RBSSelect>
+                        </div>
+                        <RBSButton 
+                            className="h-6 text-[10px]" 
+                            variant={portConnections[`port${num}`] ? "red" : "blue"}
+                            onClick={() => portConnections[`port${num}`] 
+                                ? handleDisconnectPort(num) 
+                                : handleConnectPort(num)
+                            }
+                            disabled={!portConnections[`port${num}`] && !selectedPorts[`port${num}`]}
+                        >
+                            {portConnections[`port${num}`] ? 'Desconectar' : 'Conectar'}
+                        </RBSButton>
                         </div>
                     ))}
                     </div>
-                    <div className="flex-1 bg-black border-2 border-slate-500 p-1 font-mono text-green-500 text-[10px] overflow-y-auto">_</div>
-                    <RBSButton className="w-full">Salvar Porta/Taxa</RBSButton>
+                    <div className="flex-1 bg-black border-2 border-slate-500 p-1 font-mono text-green-500 text-[10px] overflow-y-auto">
+                        {availablePorts.length > 0 
+                            ? availablePorts.map((port, i) => 
+                                `${port.device} - ${port.description}\n`
+                              ).join('')
+                            : isLoadingPorts 
+                                ? 'Buscando portas...\n' 
+                                : 'Nenhuma porta encontrada. Clique em "Atualizar Lista".\n'
+                        }
+                    </div>
+                    <div className="flex gap-2">
+                        <RBSButton 
+                            className="flex-1"
+                            onClick={loadSerialPorts}
+                            disabled={isLoadingPorts}
+                        >
+                            {isLoadingPorts ? 'Carregando...' : 'Atualizar Lista'}
+                        </RBSButton>
+                        <RBSButton className="flex-1">Salvar Porta/Taxa</RBSButton>
+                    </div>
                 </div>
                 )}
 
