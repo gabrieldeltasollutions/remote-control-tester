@@ -7,12 +7,11 @@ const API_BASE_URL = 'http://localhost:8000';
 // =========================
 export const sendCommand = async (portNumber, command) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/send_command/${portNumber}`, {
+    const response = await fetch(`${API_BASE_URL}/send_command/${portNumber}?command=${encodeURIComponent(command)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ command }),
     });
 
     if (!response.ok) throw new Error('Erro ao enviar comando');

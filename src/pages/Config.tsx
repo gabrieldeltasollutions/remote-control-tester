@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RBSButton, RBSTextBox, RBSGroupBox, RBSSelect, RBSCircularBtn } from '@/components/RBSUi';
 import { Image as ImageIcon, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Camera, Video, Crop, Save, Upload } from 'lucide-react';
+import { sendCommand } from '@/services/api';
 
 // Componente de Grid Personalizado para o Fundo Azul Escuro
 const DarkBlueGrid = () => (
@@ -25,6 +26,190 @@ const Config = () => {
   const [tabLeft, setTabLeft] = useState<'Serial' | 'Controle'>('Controle');
   const [tabRight, setTabRight] = useState<'Serial' | 'Cameras'>('Cameras');
   const [tabBottom, setTabBottom] = useState<'Padrao' | 'Comparar' | 'Testar'>('Padrao');
+
+  // Estados para controle dos atuadores (toggle)
+  const [actuatorState, setActuatorState] = useState({
+    P: false,      // Pressor Finger
+    K5: false,     // Pistão Câmera
+    K15: false,    // LED
+    B1: false,     // Alimentação B1
+    B2: false,     // Alimentação B2
+    K2: false,     // Move Berço 1
+    K7: false,     // Pilha 1
+    K4: false,     // Trava Berço 1
+    K1: false,     // Move Berço 2
+    K6: false,     // Pilha 2
+    K3: false,     // Trava Berço 2
+  });
+
+  // Estado para tamanho do passo do movimento
+  const [stepSize, setStepSize] = useState(10);
+
+  // Estados para comunicação serial (IR)
+  const [serialLogs, setSerialLogs] = useState({
+    port1: '',
+    port2: '',
+    port3: '',
+  });
+
+  // Estados de conectividade das portas seriais
+  const [portConnections, setPortConnections] = useState({
+    port1: false,
+    port2: false,
+    port3: false,
+  });
+
+  // Dados IR recebidos
+  const [irData, setIrData] = useState('');
+
+  // Estados para inputs de comando serial
+  const [serialInputs, setSerialInputs] = useState({
+    port1: '',
+    port2: '',
+    port3: '',
+  });
+
+  // Função auxiliar para filtrar dados IR
+  const filterIRData = (data) => {
+    return data.includes(';') || data.includes('FF') || data.includes('X') || data.includes('-');
+  };
+
+  // Função para toggle de atuadores (Porta 1)
+  const toggleActuator = async (actuatorKey) => {
+    try {
+      const currentState = actuatorState[actuatorKey];
+      const newState = !currentState;
+      const command = `${actuatorKey}_${newState ? '1' : '0'}`;
+      
+      const response = await sendCommand(1, command);
+      
+      if (response.status === 'success') {
+        setActuatorState(prev => ({
+          ...prev,
+          [actuatorKey]: newState
+        }));
+        console.log(`${actuatorKey} ${newState ? 'LIGADO' : 'DESLIGADO'}`);
+      } else {
+        console.error('Erro ao enviar comando:', response.message);
+      }
+    } catch (error) {
+      console.error('Erro na comunicação com API:', error);
+    }
+  };
+
+  // Função para comandos GRBL (Porta 2)
+  const sendGRBLCommand = async (command) => {
+    try {
+      const response = await sendCommand(2, command);
+      
+      if (response.status === 'success') {
+        console.log(`Comando GRBL enviado: ${command}`);
+        addToSerialLog('port2', `TX: ${command}`);
+      } else {
+        console.error('Erro ao enviar comando GRBL:', response.message);
+      }
+    } catch (error) {
+      console.error('Erro na comunicação GRBL:', error);
+    }
+  };
+
+  // Função para movimento relativo
+  const sendMovementCommand = async (direction) => {
+    let command = '';
+    
+    switch (direction) {
+      case 'X+':
+        command = `G91 X${stepSize}\nG90`;
+        break;
+      case 'X-':
+        command = `G91 X-${stepSize}\nG90`;
+        break;
+      case 'Y+':
+        command = `G91 Y${stepSize}\nG90`;
+        break;
+      case 'Y-':
+        command = `G91 Y-${stepSize}\nG90`;
+        break;
+      default:
+        return;
+    }
+    
+    await sendGRBLCommand(command);
+  };
+
+  // Função para comandos IR (Porta 3)
+  const sendIRCommand = async (command = 'GET') => {
+    try {
+      const response = await sendCommand(3, command);
+      
+      if (response.status === 'success') {
+        console.log('Comando IR enviado:', command);
+        addToSerialLog('port3', `TX: ${command}`);
+      } else {
+        console.error('Erro ao enviar comando IR:', response.message);
+      }
+    } catch (error) {
+      console.error('Erro na comunicação IR:', error);
+    }
+  };
+
+  // Função para adicionar entrada no log serial
+  const addToSerialLog = (port, message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}\n`;
+    
+    setSerialLogs(prev => ({
+      ...prev,
+      [port]: prev[port] + logEntry
+    }));
+  };
+
+  // Simulação de reset Arduino Nano (Web Serial API seria necessária para implementação real)
+  const resetArduinoNano = async () => {
+    try {
+      // Placeholder para reset real via Web Serial API
+      console.log('Reset Arduino Nano - implementação via Web Serial API necessária');
+      addToSerialLog('port3', 'Arduino Nano resetado (DTR/RTS)');
+    } catch (error) {
+      console.error('Erro ao resetar Arduino Nano:', error);
+    }
+  };
+
+  // Função para enviar comando manual por porta
+  const sendManualCommand = async (portNumber) => {
+    const command = serialInputs[`port${portNumber}`];
+    if (!command.trim()) return;
+
+    try {
+      const response = await sendCommand(portNumber, command);
+      
+      if (response.status === 'success') {
+        addToSerialLog(`port${portNumber}`, `TX: ${command}`);
+        // Limpar input após envio bem-sucedido
+        setSerialInputs(prev => ({
+          ...prev,
+          [`port${portNumber}`]: ''
+        }));
+      } else {
+        console.error('Erro ao enviar comando:', response.message);
+      }
+    } catch (error) {
+      console.error('Erro na comunicação:', error);
+    }
+  };
+
+  // Função para limpar log de porta específica
+  const clearSerialLog = (port) => {
+    setSerialLogs(prev => ({
+      ...prev,
+      [port]: ''
+    }));
+  };
+
+  // Função para enviar comando GET padrão para IR
+  const sendGetCommand = () => {
+    sendIRCommand('GET');
+  };
 
   return (
     <div className="p-2 h-full w-full bg-[#F8F9FA] font-sans text-xs overflow-hidden flex gap-2">
@@ -77,27 +262,79 @@ const Config = () => {
                     <div className="w-1/3 flex flex-col gap-3">
                         {/* Bloco Home */}
                         <div className="bg-[#BFCDDB] p-2 rounded-xl flex gap-2 h-28 items-stretch shadow-sm border border-slate-300">
-                            <RBSButton className="flex-1 h-full text-xs whitespace-normal leading-4" rounded="xl">Home - Todos os Eixos</RBSButton>
-                            <RBSButton className="w-16 h-full text-xs whitespace-normal leading-4" rounded="xl">Libera Home</RBSButton>
+                            <RBSButton 
+                                className="flex-1 h-full text-xs whitespace-normal leading-4" 
+                                rounded="xl"
+                                onClick={() => sendGRBLCommand('$H')}
+                            >
+                                Home - Todos os Eixos
+                            </RBSButton>
+                            <RBSButton 
+                                className="w-16 h-full text-xs whitespace-normal leading-4" 
+                                rounded="xl"
+                                onClick={() => sendGRBLCommand('$X')}
+                            >
+                                Libera Home
+                            </RBSButton>
                         </div>
 
                         {/* Bloco Ações */}
                         <div className="bg-[#BFCDDB] p-2 rounded-xl flex flex-col gap-2 shadow-sm border border-slate-300">
                             <div className="grid grid-cols-3 gap-2">
-                                <RBSButton className="h-12 text-[10px] whitespace-normal leading-3" rounded="xl">Pressor Finger</RBSButton>
-                                <RBSButton className="h-12 text-[10px] whitespace-normal leading-3" rounded="xl">Pistão Camera</RBSButton>
-                                <RBSButton variant="darkBlue" className="h-12 text-[10px] whitespace-normal leading-3" rounded="xl">Led Off</RBSButton>
+                                <RBSButton 
+                                    className="h-12 text-[10px] whitespace-normal leading-3" 
+                                    rounded="xl"
+                                    variant={actuatorState.P ? "green" : "blue"}
+                                    onClick={() => toggleActuator('P')}
+                                >
+                                    Pressor Finger
+                                </RBSButton>
+                                <RBSButton 
+                                    className="h-12 text-[10px] whitespace-normal leading-3" 
+                                    rounded="xl"
+                                    variant={actuatorState.K5 ? "green" : "blue"}
+                                    onClick={() => toggleActuator('K5')}
+                                >
+                                    Pistão Camera
+                                </RBSButton>
+                                <RBSButton 
+                                    variant={actuatorState.K15 ? "green" : "darkBlue"} 
+                                    className="h-12 text-[10px] whitespace-normal leading-3" 
+                                    rounded="xl"
+                                    onClick={() => toggleActuator('K15')}
+                                >
+                                    {actuatorState.K15 ? 'Led On' : 'Led Off'}
+                                </RBSButton>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                                <RBSButton variant="darkBlue" className="h-8 text-[10px]" rounded="xl">Alimentação B1</RBSButton>
-                                <RBSButton variant="darkBlue" className="h-8 text-[10px]" rounded="xl">Alimentação B2</RBSButton>
+                                <RBSButton 
+                                    variant={actuatorState.B1 ? "green" : "darkBlue"} 
+                                    className="h-8 text-[10px]" 
+                                    rounded="xl"
+                                    onClick={() => toggleActuator('B1')}
+                                >
+                                    Alimentação B1
+                                </RBSButton>
+                                <RBSButton 
+                                    variant={actuatorState.B2 ? "green" : "darkBlue"} 
+                                    className="h-8 text-[10px]" 
+                                    rounded="xl"
+                                    onClick={() => toggleActuator('B2')}
+                                >
+                                    Alimentação B2
+                                </RBSButton>
                             </div>
                         </div>
 
                         {/* Bloco Passos */}
                         <div className="bg-[#BFCDDB] p-3 rounded-xl shadow-sm border border-slate-300">
                             <label className="text-[11px] font-bold text-[#014E7F] block mb-1">QTD. Passos</label>
-                            <input className="w-full h-10 rounded-lg border border-[#014E7F] px-2 text-lg font-bold" defaultValue="1" />
+                            <input 
+                                className="w-full h-10 rounded-lg border border-[#014E7F] px-2 text-lg font-bold" 
+                                type="number"
+                                value={stepSize}
+                                onChange={(e) => setStepSize(Number(e.target.value))}
+                            />
                         </div>
                     </div>
 
@@ -107,14 +344,56 @@ const Config = () => {
                         {/* Topo: Botões Berço */}
                         <div className="flex justify-between px-2 mt-2 z-10 relative">
                             <div className="flex flex-col gap-2">
-                                <RBSButton className="w-20 h-10 text-[10px] whitespace-normal leading-3" rounded="xl">Move Berço 1</RBSButton>
-                                <RBSButton className="w-20 h-10 text-[10px]" rounded="xl">Pilha 1</RBSButton>
-                                <RBSButton className="w-20 h-10 text-[10px] whitespace-normal leading-3" rounded="xl">Trava Berço 1</RBSButton>
+                                <RBSButton 
+                                    className="w-20 h-10 text-[10px] whitespace-normal leading-3" 
+                                    rounded="xl"
+                                    variant={actuatorState.K2 ? "green" : "blue"}
+                                    onClick={() => toggleActuator('K2')}
+                                >
+                                    Move Berço 1
+                                </RBSButton>
+                                <RBSButton 
+                                    className="w-20 h-10 text-[10px]" 
+                                    rounded="xl"
+                                    variant={actuatorState.K7 ? "green" : "blue"}
+                                    onClick={() => toggleActuator('K7')}
+                                >
+                                    Pilha 1
+                                </RBSButton>
+                                <RBSButton 
+                                    className="w-20 h-10 text-[10px] whitespace-normal leading-3" 
+                                    rounded="xl"
+                                    variant={actuatorState.K4 ? "green" : "blue"}
+                                    onClick={() => toggleActuator('K4')}
+                                >
+                                    Trava Berço 1
+                                </RBSButton>
                             </div>
                             <div className="flex flex-col gap-2">
-                                <RBSButton className="w-20 h-10 text-[10px] whitespace-normal leading-3" rounded="xl">Move Berço 2</RBSButton>
-                                <RBSButton className="w-20 h-10 text-[10px]" rounded="xl">Pilha 2</RBSButton>
-                                <RBSButton className="w-20 h-10 text-[10px] whitespace-normal leading-3" rounded="xl">Trava Berço 2</RBSButton>
+                                <RBSButton 
+                                    className="w-20 h-10 text-[10px] whitespace-normal leading-3" 
+                                    rounded="xl"
+                                    variant={actuatorState.K1 ? "green" : "blue"}
+                                    onClick={() => toggleActuator('K1')}
+                                >
+                                    Move Berço 2
+                                </RBSButton>
+                                <RBSButton 
+                                    className="w-20 h-10 text-[10px]" 
+                                    rounded="xl"
+                                    variant={actuatorState.K6 ? "green" : "blue"}
+                                    onClick={() => toggleActuator('K6')}
+                                >
+                                    Pilha 2
+                                </RBSButton>
+                                <RBSButton 
+                                    className="w-20 h-10 text-[10px] whitespace-normal leading-3" 
+                                    rounded="xl"
+                                    variant={actuatorState.K3 ? "green" : "blue"}
+                                    onClick={() => toggleActuator('K3')}
+                                >
+                                    Trava Berço 2
+                                </RBSButton>
                             </div>
                         </div>
 
@@ -128,10 +407,38 @@ const Config = () => {
                                 <span className="col-start-2 row-start-3 text-[#014E7F] font-bold -mr-8 text-[10px]">Y -</span>
 
                                 {/* Botões Verdes */}
-                                <div className="col-start-2 row-start-1"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowUp size={20} strokeWidth={3} />} /></div>
-                                <div className="col-start-1 row-start-2"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowLeft size={20} strokeWidth={3} />} /></div>
-                                <div className="col-start-3 row-start-2"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowRight size={20} strokeWidth={3} />} /></div>
-                                <div className="col-start-2 row-start-3"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowDown size={20} strokeWidth={3} />} /></div>
+                                <div className="col-start-2 row-start-1">
+                                    <RBSCircularBtn 
+                                        variant="green" 
+                                        size="w-10 h-10" 
+                                        icon={<ArrowUp size={20} strokeWidth={3} />} 
+                                        onClick={() => sendMovementCommand('Y+')}
+                                    />
+                                </div>
+                                <div className="col-start-1 row-start-2">
+                                    <RBSCircularBtn 
+                                        variant="green" 
+                                        size="w-10 h-10" 
+                                        icon={<ArrowLeft size={20} strokeWidth={3} />} 
+                                        onClick={() => sendMovementCommand('X-')}
+                                    />
+                                </div>
+                                <div className="col-start-3 row-start-2">
+                                    <RBSCircularBtn 
+                                        variant="green" 
+                                        size="w-10 h-10" 
+                                        icon={<ArrowRight size={20} strokeWidth={3} />} 
+                                        onClick={() => sendMovementCommand('X+')}
+                                    />
+                                </div>
+                                <div className="col-start-2 row-start-3">
+                                    <RBSCircularBtn 
+                                        variant="green" 
+                                        size="w-10 h-10" 
+                                        icon={<ArrowDown size={20} strokeWidth={3} />} 
+                                        onClick={() => sendMovementCommand('Y-')}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -323,13 +630,39 @@ const Config = () => {
                     
                     <RBSGroupBox title="Enviar Comandos {Acionamentos} - Serial 1">
                       <div className="flex flex-col gap-1">
-                        <input className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" />
-                        <div className="h-24 bg-[#014E7F] w-full border border-[#003355]"></div>
+                        <input 
+                          className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" 
+                          placeholder="Ex: P_1, K5_1, B1_0..."
+                          value={serialInputs.port1}
+                          onChange={(e) => setSerialInputs(prev => ({...prev, port1: e.target.value}))}
+                          onKeyPress={(e) => e.key === 'Enter' && sendManualCommand(1)}
+                        />
+                        <div className="h-24 bg-[#014E7F] w-full border border-[#003355] p-1 font-mono text-green-400 text-[9px] overflow-y-auto">
+                          {serialLogs.port1 || 'Aguardando comandos...'}
+                        </div>
                         <div className="flex justify-between mt-1">
-                          <RBSButton variant="orange" className="w-28 text-[10px]">Teclado Virtual</RBSButton>
+                          <RBSButton 
+                            variant="orange" 
+                            className="w-28 text-[10px]"
+                            onClick={sendGetCommand}
+                          >
+                            Teste GET (IR)
+                          </RBSButton>
                           <div className="flex gap-1">
-                            <RBSButton variant="orange" className="w-16 text-[10px]">Limpar</RBSButton>
-                            <RBSButton variant="orange" className="w-16 text-[10px]">Enviar</RBSButton>
+                            <RBSButton 
+                              variant="orange" 
+                              className="w-16 text-[10px]"
+                              onClick={() => clearSerialLog('port1')}
+                            >
+                              Limpar
+                            </RBSButton>
+                            <RBSButton 
+                              variant="orange" 
+                              className="w-16 text-[10px]"
+                              onClick={() => sendManualCommand(1)}
+                            >
+                              Enviar
+                            </RBSButton>
                           </div>
                         </div>
                       </div>
@@ -337,13 +670,39 @@ const Config = () => {
 
                     <RBSGroupBox title="Enviar Comandos {Motores} - Serial 2">
                       <div className="flex flex-col gap-1">
-                        <input className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" />
-                        <div className="h-24 bg-[#014E7F] w-full border border-[#003355]"></div>
+                        <input 
+                          className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" 
+                          placeholder="Ex: G90 X100 Y200, $H, $X..."
+                          value={serialInputs.port2}
+                          onChange={(e) => setSerialInputs(prev => ({...prev, port2: e.target.value}))}
+                          onKeyPress={(e) => e.key === 'Enter' && sendManualCommand(2)}
+                        />
+                        <div className="h-24 bg-[#014E7F] w-full border border-[#003355] p-1 font-mono text-green-400 text-[9px] overflow-y-auto">
+                          {serialLogs.port2 || 'Aguardando comandos GRBL...'}
+                        </div>
                         <div className="flex justify-between mt-1">
-                          <RBSButton variant="orange" className="w-28 text-[10px]">Parâmetros GRBL</RBSButton>
+                          <RBSButton 
+                            variant="orange" 
+                            className="w-28 text-[10px]"
+                            onClick={() => sendGRBLCommand('$?')}
+                          >
+                            Status GRBL
+                          </RBSButton>
                           <div className="flex gap-1">
-                            <RBSButton variant="orange" className="w-16 text-[10px]">Limpar</RBSButton>
-                            <RBSButton variant="orange" className="w-16 text-[10px]">Enviar</RBSButton>
+                            <RBSButton 
+                              variant="orange" 
+                              className="w-16 text-[10px]"
+                              onClick={() => clearSerialLog('port2')}
+                            >
+                              Limpar
+                            </RBSButton>
+                            <RBSButton 
+                              variant="orange" 
+                              className="w-16 text-[10px]"
+                              onClick={() => sendManualCommand(2)}
+                            >
+                              Enviar
+                            </RBSButton>
                           </div>
                         </div>
                       </div>
@@ -351,22 +710,63 @@ const Config = () => {
 
                     <RBSGroupBox title="Enviar Comandos {IR} - Serial 3">
                       <div className="flex flex-col gap-1">
-                        <input className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" />
-                        <div className="h-24 bg-[#014E7F] w-full border border-[#003355]"></div>
-                        <div className="flex justify-end gap-1 mt-1">
-                          <RBSButton variant="orange" className="w-16 text-[10px]">Limpar</RBSButton>
-                          <RBSButton variant="orange" className="w-16 text-[10px]">Enviar</RBSButton>
+                        <input 
+                          className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" 
+                          placeholder="Ex: GET (Arduino Nano IR)"
+                          value={serialInputs.port3}
+                          onChange={(e) => setSerialInputs(prev => ({...prev, port3: e.target.value}))}
+                          onKeyPress={(e) => e.key === 'Enter' && sendManualCommand(3)}
+                        />
+                        <div className="h-24 bg-[#014E7F] w-full border border-[#003355] p-1 font-mono text-green-400 text-[9px] overflow-y-auto">
+                          {serialLogs.port3 || 'Aguardando dados IR...'}
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <RBSButton 
+                            variant="orange" 
+                            className="w-28 text-[10px]"
+                            onClick={resetArduinoNano}
+                          >
+                            Reset Nano
+                          </RBSButton>
+                          <div className="flex gap-1">
+                            <RBSButton 
+                              variant="orange" 
+                              className="w-16 text-[10px]"
+                              onClick={() => clearSerialLog('port3')}
+                            >
+                              Limpar
+                            </RBSButton>
+                            <RBSButton 
+                              variant="orange" 
+                              className="w-16 text-[10px]"
+                              onClick={() => sendManualCommand(3)}
+                            >
+                              Enviar
+                            </RBSButton>
+                          </div>
                         </div>
                       </div>
                     </RBSGroupBox>
 
-                    <RBSGroupBox title="Enviar Comandos {IR} - Serial 4">
+                    <RBSGroupBox title="Status IR - Dados Recebidos">
                       <div className="flex flex-col gap-1">
-                        <input className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" />
-                        <div className="h-24 bg-[#014E7F] w-full border border-[#003355]"></div>
-                        <div className="flex justify-end gap-1 mt-1">
-                          <RBSButton variant="orange" className="w-16 text-[10px]">Limpar</RBSButton>
-                          <RBSButton variant="orange" className="w-16 text-[10px]">Enviar</RBSButton>
+                        <div className="text-[10px] text-slate-600 mb-1">
+                          Últimos dados IR recebidos:
+                        </div>
+                        <div className="h-24 bg-yellow-50 border border-yellow-300 p-1 font-mono text-orange-600 text-[9px] overflow-y-auto">
+                          {irData || 'Nenhum dado IR recebido ainda...'}
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <div className="text-[9px] text-slate-500">
+                            Arduino Nano: {portConnections.port3 ? '🟢 Online' : '🔴 Offline'}
+                          </div>
+                          <RBSButton 
+                            variant="blue" 
+                            className="w-20 text-[9px]"
+                            onClick={sendGetCommand}
+                          >
+                            GET IR
+                          </RBSButton>
                         </div>
                       </div>
                     </RBSGroupBox>
