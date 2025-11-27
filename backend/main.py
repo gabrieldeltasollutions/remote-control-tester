@@ -21,6 +21,7 @@ app.add_middleware(
 serial_port1 = None  # Porta para comandos K/P (Arduino/Relés)
 serial_port2 = None  # Porta para comandos G-code (GRBL)
 serial_port3 = None  # Porta para receber dados IR (Nano)
+serial_port4 = None  # Porta para dados IR adicional (Nano)
 
 # Variáveis de controle
 process_running = False
@@ -537,7 +538,7 @@ async def get_serial_ports():
 @app.get("/connect_port/{port_number}")
 async def connect_serial_port(port_number: int, port_name: str):
     """Conecta a uma porta serial"""
-    global serial_port1, serial_port2, serial_port3
+    global serial_port1, serial_port2, serial_port3, serial_port4
     
     try:
         print(f"Tentando conectar porta {port_number}: {port_name}")
@@ -557,6 +558,11 @@ async def connect_serial_port(port_number: int, port_name: str):
                 serial_port3.close()
             serial_port3 = serial.Serial(port_name, 9600, timeout=1)  # Nano geralmente usa 9600
             return {"status": "success", "message": f"Porta 3 conectada: {port_name}"}
+        elif port_number == 4:
+            if serial_port4 and serial_port4.is_open:
+                serial_port4.close()
+            serial_port4 = serial.Serial(port_name, 9600, timeout=1)  # Porta IR também usa 9600
+            return {"status": "success", "message": f"Porta 4 conectada: {port_name}"}
         else:
             return {"status": "error", "message": "Número de porta inválido"}
     except Exception as e:
@@ -566,7 +572,7 @@ async def connect_serial_port(port_number: int, port_name: str):
 @app.get("/disconnect_port/{port_number}")
 async def disconnect_serial_port(port_number: int):
     """Desconecta uma porta serial"""
-    global serial_port1, serial_port2, serial_port3
+    global serial_port1, serial_port2, serial_port3, serial_port4
     
     try:
         if port_number == 1 and serial_port1:
@@ -581,6 +587,10 @@ async def disconnect_serial_port(port_number: int):
             serial_port3.close()
             serial_port3 = None
             print("Porta 3 desconectada")
+        elif port_number == 4 and serial_port4:
+            serial_port4.close()
+            serial_port4 = None
+            print("Porta 4 desconectada")
             
         return {"status": "success", "message": f"Porta {port_number} desconectada"}
     except Exception as e:
@@ -617,7 +627,7 @@ async def send_home_command(port_number: int):
 @app.post("/send_command/{port_number}")
 async def send_custom_command(port_number: int, command: str):
     """Envia um comando customizado"""
-    global serial_port1, serial_port2, serial_port3
+    global serial_port1, serial_port2, serial_port3, serial_port4
     
     try:
         port = None
@@ -627,6 +637,8 @@ async def send_custom_command(port_number: int, command: str):
             port = serial_port2
         elif port_number == 3:
             port = serial_port3
+        elif port_number == 4:
+            port = serial_port4
             
         if not port or not port.is_open:
             return {"status": "error", "message": f"Porta {port_number} não está conectada"}
@@ -878,6 +890,7 @@ if __name__ == "__main__":
     print("Porta 1: Comandos K/P (Arduino/Relés)")
     print("Porta 2: Comandos G-code (GRBL)") 
     print("Porta 3: Dados IR (Nano)")
+    print("Porta 4: Dados IR Adicional (Nano)")
     print("====================")
     
     import uvicorn
