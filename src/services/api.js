@@ -1,6 +1,10 @@
-// services/api.js
+// src/services/api.js
+
 const API_BASE_URL = 'http://localhost:8000';
 
+// =========================
+// Função genérica
+// =========================
 export const sendCommand = async (portNumber, command) => {
   try {
     const response = await fetch(`${API_BASE_URL}/send_command/${portNumber}`, {
@@ -11,35 +15,49 @@ export const sendCommand = async (portNumber, command) => {
       body: JSON.stringify({ command }),
     });
 
-    if (!response.ok) {
-      throw new Error('Erro ao enviar comando');
-    }
+    if (!response.ok) throw new Error('Erro ao enviar comando');
 
     return await response.json();
   } catch (error) {
-    console.error('Erro:', error);
+    console.error('Erro no sendCommand:', error);
     throw error;
   }
 };
 
-// ADICIONE ESTA FUNÇÃO
+// =========================
+// Status do servidor
+// =========================
+export const checkServerStatus = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/status`);
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+};
+
+// =========================
+// COMANDOS
+// =========================
 export const startCalibration = async (portNumber = 1) => {
-  try {
-    const response = await sendCommand(portNumber, 'START_CALIBRATION');
-    return response;
-  } catch (error) {
-    console.error('Erro na calibração:', error);
-    throw error;
-  }
+  return await sendCommand(portNumber, 'START_CALIBRATION');
 };
 
-// Ou se quiser uma função mais genérica
 export const startTest = async (portNumber = 1) => {
-  try {
-    const response = await sendCommand(portNumber, 'START');
-    return response;
-  } catch (error) {
-    console.error('Erro ao iniciar teste:', error);
-    throw error;
-  }
+  return await sendCommand(portNumber, 'START');
+};
+
+export const executeFingerDown = async (portNumber = 1) => {
+  return await sendCommand(portNumber, 'FINGER_DOWN');
+};
+
+// =========================
+// OBJETO AGRUPADO
+// =========================
+export const apiService = {
+  sendCommand,
+  checkServerStatus,
+  startCalibration,
+  startTest,
+  executeFingerDown,
 };
