@@ -5,10 +5,8 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Função auxiliar para verificar se o botão está ativo e aplicar o estilo correto
   const getButtonClass = (path: string) => {
     const isActive = location.pathname === path;
-    // Se estiver ativo, força o fundo "accent". Se não, usa o hover padrão.
     return `p-2 rounded transition-colors ${
       isActive 
         ? "bg-sidebar-accent text-sidebar-foreground" 
@@ -18,22 +16,20 @@ const Sidebar = () => {
 
   return (
     <aside className="w-16 bg-sidebar flex flex-col items-center py-4 gap-6 border-r border-sidebar-border h-screen sticky top-0">
-      {/* Botão de Menu (Colapse/Expand) - Mantido visual por enquanto */}
       <button className="text-sidebar-foreground hover:bg-sidebar-accent p-2 rounded">
         <Menu size={24} />
       </button>
       
       <div className="flex-1 flex flex-col gap-4">
-        {/* Botão Home -> Vai para a rota "/" */}
+        {/* Botão Home -> Agora vai para a rota "/load" */}
         <button 
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/load')} 
           className={getButtonClass('/')}
           title="Dashboard"
         >
           <Home size={24} />
         </button>
 
-        {/* Botão Configurações -> Vai para a rota "/config" */}
         <button 
           onClick={() => navigate('/config')}
           className={getButtonClass('/config')}
@@ -42,7 +38,6 @@ const Sidebar = () => {
           <Settings size={24} />
         </button>
 
-        {/* Botões extras (sem rota definida ainda) */}
         <button className="text-sidebar-foreground hover:bg-sidebar-accent p-2 rounded">
           <Code size={24} />
         </button>

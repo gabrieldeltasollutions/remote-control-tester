@@ -101,4 +101,19 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Animação da câmera para tela de calibração */
+@keyframes camera-move {
+  0% { transform: rotate(0deg) translateY(0); }
+  25% { transform: rotate(-8deg) translateY(-3px); }
+  50% { transform: rotate(0deg) translateY(0); }
+  75% { transform: rotate(8deg) translateY(-3px); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+
+.animate-camera {
+  animation: camera-move 1.5s infinite ease-in-out;
+  display: inline-block;
+}
+
 }
