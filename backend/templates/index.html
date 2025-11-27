@@ -1,0 +1,616 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IR Controller - Sistema de Controle IR</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .content {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .panel h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+        
+        .port-section {
+            margin-bottom: 25px;
+        }
+        
+        .port-section h3 {
+            color: #34495e;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        select, input, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.success {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        }
+        
+        button.danger {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .log-container {
+            grid-column: 1 / -1;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-left: 3px solid #3498db;
+            padding-left: 10px;
+        }
+        
+        .log-entry.success {
+            border-left-color: #27ae60;
+            color: #90ee90;
+        }
+        
+        .log-entry.error {
+            border-left-color: #e74c3c;
+            color: #ff6b6b;
+        }
+        
+        .log-entry.info {
+            border-left-color: #3498db;
+            color: #87ceeb;
+        }
+        
+        .log-entry.ir-data {
+            border-left-color: #f39c12;
+            color: #f9e79f;
+            background: rgba(243, 156, 18, 0.1);
+        }
+        
+        .real-time-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .ws-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #e8f4fd;
+            margin-bottom: 15px;
+        }
+        
+        .ws-status.connected::before {
+            content: "●";
+            color: #27ae60;
+            font-size: 1.2em;
+        }
+        
+        .ws-status.disconnected::before {
+            content: "●";
+            color: #e74c3c;
+            font-size: 1.2em;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                grid-template-columns: 1fr;
+            }
+            
+            .real-time-controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 IR Controller System</h1>
+            <p>Controle completo de dispositivos IR via Arduino Nano</p>
+        </div>
+        
+        <div class="content">
+            <!-- Porta IR 3 -->
+            <div class="panel">
+                <h2>🔧 Porta IR 3 - Berço 1</h2>
+                
+                <div class="port-section">
+                    <h3>
+                        Status: 
+                        <span id="status3" class="status disconnected">Desconectado</span>
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label for="port3Select">Porta Serial:</label>
+                        <select id="port3Select">
+                            <option value="">Selecione uma porta...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button onclick="connectPort(3)" class="success">🔌 Conectar</button>
+                        <button onclick="disconnectPort(3)" class="danger">🔓 Desconectar</button>
+                    </div>
+                </div>
+                
+                <div class="port-section">
+                    <h3>Comandos</h3>
+                    <div class="form-group">
+                        <input type="text" id="command3" placeholder="Digite um comando (ex: GET, RESET)">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="sendCommand(3)">📤 Enviar Comando</button>
+                        <button onclick="getData(3)">📡 Obter Dados IR</button>
+                        <button onclick="resetNano(3)" class="danger">🔄 Reset Arduino</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Porta IR 4 -->
+            <div class="panel">
+                <h2>🔧 Porta IR 4 - Berço 2</h2>
+                
+                <div class="port-section">
+                    <h3>
+                        Status: 
+                        <span id="status4" class="status disconnected">Desconectado</span>
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label for="port4Select">Porta Serial:</label>
+                        <select id="port4Select">
+                            <option value="">Selecione uma porta...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button onclick="connectPort(4)" class="success">🔌 Conectar</button>
+                        <button onclick="disconnectPort(4)" class="danger">🔓 Desconectar</button>
+                    </div>
+                </div>
+                
+                <div class="port-section">
+                    <h3>Comandos</h3>
+                    <div class="form-group">
+                        <input type="text" id="command4" placeholder="Digite um comando (ex: GET, RESET)">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="sendCommand(4)">📤 Enviar Comando</button>
+                        <button onclick="getData(4)">📡 Obter Dados IR</button>
+                        <button onclick="resetNano(4)" class="danger">🔄 Reset Arduino</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Controles em Tempo Real -->
+            <div class="panel" style="grid-column: 1 / -1;">
+                <h2>⏰ Controle em Tempo Real</h2>
+                
+                <div class="ws-status disconnected" id="wsStatus">
+                    WebSocket: Desconectado
+                </div>
+                
+                <div class="real-time-controls">
+                    <button onclick="startListener(3)" class="success">🎧 Iniciar Escuta Porta 3</button>
+                    <button onclick="stopListener(3)" class="danger">⏹️ Parar Escuta Porta 3</button>
+                    <button onclick="startListener(4)" class="success">🎧 Iniciar Escuta Porta 4</button>
+                    <button onclick="stopListener(4)" class="danger">⏹️ Parar Escuta Porta 4</button>
+                </div>
+            </div>
+            
+            <!-- Log de Atividades -->
+            <div class="panel" style="grid-column: 1 / -1;">
+                <h2>📋 Log de Atividades</h2>
+                <div class="log-container" id="log">
+                    <div class="log-entry info">Sistema IR Controller inicializado</div>
+                    <div class="log-entry info">Aguardando comandos...</div>
+                </div>
+                
+                <div style="margin-top: 15px; text-align: right;">
+                    <button onclick="clearLog()" class="danger">🗑️ Limpar Log</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let ws3 = null;
+        let ws4 = null;
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAvailablePorts();
+            checkAllStatus();
+            connectWebSockets();
+            setInterval(checkAllStatus, 5000); // Atualiza status a cada 5 segundos
+        });
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            log('Log limpo', 'info');
+        }
+        
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}/api${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                log(`Erro na requisição: ${error.message}`, 'error');
+                return null;
+            }
+        }
+        
+        async function loadAvailablePorts() {
+            const result = await apiCall('/ir/available-ports');
+            if (result && result.available_ports) {
+                const select3 = document.getElementById('port3Select');
+                const select4 = document.getElementById('port4Select');
+                
+                select3.innerHTML = '<option value="">Selecione uma porta...</option>';
+                select4.innerHTML = '<option value="">Selecione uma porta...</option>';
+                
+                result.available_ports.forEach(port => {
+                    const option3 = new Option(`${port.device} - ${port.description}`, port.device);
+                    const option4 = new Option(`${port.device} - ${port.description}`, port.device);
+                    select3.add(option3);
+                    select4.add(option4);
+                });
+                
+                log(`Carregadas ${result.available_ports.length} portas disponíveis`, 'success');
+            }
+        }
+        
+        async function connectPort(portNumber) {
+            const select = document.getElementById(`port${portNumber}Select`);
+            const portName = select.value;
+            
+            if (!portName) {
+                log(`Selecione uma porta para conectar IR ${portNumber}`, 'error');
+                return;
+            }
+            
+            const result = await apiCall('/ir/connect', {
+                method: 'POST',
+                body: JSON.stringify({
+                    port_number: portNumber,
+                    port_name: portName
+                })
+            });
+            
+            if (result) {
+                log(`Porta IR ${portNumber}: ${result.message}`, result.status === 'success' ? 'success' : 'error');
+                checkStatus(portNumber);
+            }
+        }
+        
+        async function disconnectPort(portNumber) {
+            const result = await apiCall('/ir/disconnect', {
+                method: 'POST',
+                body: JSON.stringify({
+                    port_number: portNumber
+                })
+            });
+            
+            if (result) {
+                log(`Porta IR ${portNumber}: ${result.message}`, result.status === 'success' ? 'success' : 'error');
+                checkStatus(portNumber);
+            }
+        }
+        
+        async function checkStatus(portNumber) {
+            const result = await apiCall(`/ir/status/${portNumber}`);
+            if (result) {
+                const statusElement = document.getElementById(`status${portNumber}`);
+                if (result.status === 'connected') {
+                    statusElement.textContent = `Conectado: ${result.port_name}`;
+                    statusElement.className = 'status connected';
+                } else {
+                    statusElement.textContent = 'Desconectado';
+                    statusElement.className = 'status disconnected';
+                }
+            }
+        }
+        
+        async function checkAllStatus() {
+            await checkStatus(3);
+            await checkStatus(4);
+        }
+        
+        async function sendCommand(portNumber) {
+            const input = document.getElementById(`command${portNumber}`);
+            const command = input.value.trim();
+            
+            if (!command) {
+                log(`Digite um comando para enviar para IR ${portNumber}`, 'error');
+                return;
+            }
+            
+            const result = await apiCall('/ir/send-command', {
+                method: 'POST',
+                body: JSON.stringify({
+                    port_number: portNumber,
+                    command: command
+                })
+            });
+            
+            if (result) {
+                log(`Comando IR ${portNumber}: ${result.message}`, result.status === 'success' ? 'success' : 'error');
+                input.value = '';
+            }
+        }
+        
+        async function getData(portNumber) {
+            const result = await apiCall('/ir/get-data', {
+                method: 'POST',
+                body: JSON.stringify({
+                    port_number: portNumber
+                })
+            });
+            
+            if (result) {
+                if (result.status === 'success' && result.data) {
+                    log(`📟 Dados IR ${portNumber}: ${JSON.stringify(result.data)}`, 'ir-data');
+                } else {
+                    log(`IR ${portNumber}: ${result.message}`, result.status === 'success' ? 'info' : 'error');
+                }
+            }
+        }
+        
+        async function resetNano(portNumber) {
+            const result = await apiCall('/ir/reset', {
+                method: 'POST',
+                body: JSON.stringify({
+                    port_number: portNumber
+                })
+            });
+            
+            if (result) {
+                log(`Reset IR ${portNumber}: ${result.message}`, result.status === 'success' ? 'success' : 'error');
+            }
+        }
+        
+        async function startListener(portNumber) {
+            const result = await apiCall(`/ir/start-listener/${portNumber}`, {
+                method: 'POST'
+            });
+            
+            if (result) {
+                log(`Listener IR ${portNumber}: ${result.message}`, result.status === 'success' ? 'success' : 'error');
+            }
+        }
+        
+        async function stopListener(portNumber) {
+            const result = await apiCall(`/ir/stop-listener/${portNumber}`, {
+                method: 'POST'
+            });
+            
+            if (result) {
+                log(`Listener IR ${portNumber}: ${result.message}`, result.status === 'success' ? 'success' : 'error');
+            }
+        }
+        
+        function connectWebSockets() {
+            // Conecta WebSocket para porta 3
+            try {
+                ws3 = new WebSocket(`ws://${window.location.host}/ws/ir/3`);
+                setupWebSocket(ws3, 3);
+            } catch (e) {
+                log('Erro ao conectar WebSocket porta 3', 'error');
+            }
+            
+            // Conecta WebSocket para porta 4
+            try {
+                ws4 = new WebSocket(`ws://${window.location.host}/ws/ir/4`);
+                setupWebSocket(ws4, 4);
+            } catch (e) {
+                log('Erro ao conectar WebSocket porta 4', 'error');
+            }
+        }
+        
+        function setupWebSocket(ws, portNumber) {
+            ws.onopen = () => {
+                log(`WebSocket porta ${portNumber} conectado`, 'success');
+                updateWsStatus();
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'ir_data') {
+                    log(`📟 Dados IR ${portNumber} [Tempo Real]: ${JSON.stringify(data.data)}`, 'ir-data');
+                }
+            };
+            
+            ws.onclose = () => {
+                log(`WebSocket porta ${portNumber} desconectado`, 'error');
+                updateWsStatus();
+                
+                // Tenta reconectar após 5 segundos
+                setTimeout(() => {
+                    if (portNumber === 3) {
+                        ws3 = new WebSocket(`ws://${window.location.host}/ws/ir/3`);
+                        setupWebSocket(ws3, 3);
+                    } else {
+                        ws4 = new WebSocket(`ws://${window.location.host}/ws/ir/4`);
+                        setupWebSocket(ws4, 4);
+                    }
+                }, 5000);
+            };
+            
+            ws.onerror = (error) => {
+                log(`Erro WebSocket porta ${portNumber}: ${error}`, 'error');
+            };
+        }
+        
+        function updateWsStatus() {
+            const statusElement = document.getElementById('wsStatus');
+            const isConnected = (ws3 && ws3.readyState === WebSocket.OPEN) || 
+                               (ws4 && ws4.readyState === WebSocket.OPEN);
+            
+            if (isConnected) {
+                statusElement.textContent = 'WebSocket: Conectado';
+                statusElement.className = 'ws-status connected';
+            } else {
+                statusElement.textContent = 'WebSocket: Desconectado';
+                statusElement.className = 'ws-status disconnected';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -5,17 +5,72 @@ import serial
 import serial.tools.list_ports
 import asyncio
 import time
+from datetime import datetime
+import os
+from fastapi import HTTPException
+import json
 
 app = FastAPI()
 
-# Configuração CORS
+# CONFIGURAÇÃO CORS CORRIGIDA - DEVE VIR ANTES DE TODAS AS ROTAS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
+
+
+
+# ESTADOS DA MÁQUINA
+class MachineState(Enum):
+    IDLE = "idle"
+    MOVING = "moving"
+    PRESSING = "pressing"
+    EMERGENCY = "emergency"
+    CALIBRATING = "calibrating"
+
+
+# VARIÁVEIS GLOBAIS COM CONTROLE
+fingerdown_running = False
+current_test_cycle = 0
+linha_atual = 0
+libera_envio_comandos = False
+machine_state = MachineState.IDLE
+
+
+# LOCKS PARA SINCRONIZAÇÃO
+serial_lock1 = threading.Lock()
+serial_lock2 = threading.Lock()
+serial_lock3 = threading.Lock()
+state_lock = threading.Lock()
+
+
+command_executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="MachineCmd")
+
+def set_machine_state(new_state: MachineState):
+    """Altera o estado da máquina com thread safety"""
+    global machine_state
+    with state_lock:
+        old_state = machine_state
+        machine_state = new_state
+        print(f"🔄 MUDANÇA DE ESTADO: {old_state.value} -> {new_state.value}")
+
+def get_machine_state() -> MachineState:
+    """Retorna o estado atual da máquina"""
+    with state_lock:
+        return machine_state
+
+
+
+
 
 # Variáveis globais para as portas seriais
 serial_port1 = None  # Porta para comandos K/P (Arduino/Relés)
@@ -27,13 +82,34 @@ process_running = False
 linha_atual = 0
 libera_envio_comandos = False
 
-# Dados de teste (coordenadas)
+# Variáveis específicas do FingerDown
+fingerdown_running = False
+current_test_cycle = 0
+
+
+
 test_coordinates = [
-    {"command": "G90", "x": "10", "y": "10"},
-    {"command": "G90", "x": "20", "y": "20"},
-    {"command": "G90", "x": "30", "y": "30"},
-    {"command": "G90", "x": "40", "y": "40"},
+    {"command": "G90", "x": 41, "y": 135},     # BOTAO POWER
+    {"command": "G90", "x": 14, "y": 135},     # BOTAO FUNÇAO
+    {"command": "G90", "x": 41, "y": 114},     # BOTAO TEMPORIZADO
+    {"command": "G90", "x": 14, "y": 114},     # BOTAO VELOCIDADE
+    {"command": "G90", "x": 28, "y": 127},     # BOTAO TEMP MAX
+    {"command": "G90", "x": 28, "y": 102},     # BOTAO TEMP DOWN
+    {"command": "G90", "x": 42, "y": 96},      # OCULTO ABAIXO TEMPORIZADOR
+    {"command": "G90", "x": 14, "y": 94},      # OSCILAR
+    {"command": "G90", "x": 14, "y": 71},      # TURBO
+    {"command": "G90", "x": 24, "y": 71},      # CONFORTO
+    {"command": "G90", "x": 34, "y": 71},      # LIMPAR
+    {"command": "G90", "x": 44, "y": 71},      # IONAIR
+    {"command": "G90", "x": 44, "y": 55},      # OCULTO ABAIXO IONAIR
+    {"command": "G90", "x": 34, "y": 55},      # ANTIMORFO
+    {"command": "G90", "x": 24, "y": 55},      # VISOR
+    {"command": "G90", "x": 14, "y": 55}       # DORMIR
 ]
+
+
+
+
 
 html_content = """
 <!DOCTYPE html>
@@ -185,7 +261,7 @@ html_content = """
             <button onclick="sendCommand(1, 'K2_1')" class="command-btn">K2_1 (Avançar)</button>
             <button onclick="sendCommand(1, 'P_1')" class="command-btn">P_1 (Pressionar)</button>
             <button onclick="sendCommand(1, 'P_0')" class="command-btn">P_0 (Liberar)</button>
-            <button onclick="sendCommand(1, 'K4_1')" class="command-btn">K4_1 (Travar)</button>
+            <button onclick="sendCommand(1, 'P_2')" class="command-btn">P_2 (Travar)</button>
             <button onclick="sendCommand(1, 'K7_1')" class="command-btn">K7_1 (Expandir)</button>
             <button onclick="sendCommand(1, 'B1_1')" class="command-btn">B1_1 (Iniciar IR)</button>
              <button onclick="sendCommand(1, 'K2_0')" class="command-btn">ENA (voltar)</button>
@@ -503,6 +579,406 @@ html_content = """
 async def read_root():
     return HTMLResponse(content=html_content)
 
+
+
+
+@app.get("/health")
+async def health_check():
+    """Endpoint específico para health check"""
+    return {
+        "status": "healthy",
+        "service": "remote-control-tester",
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.get("/test")
+async def test():
+    return {"message": "✅ API está funcionando!", "status": "success"}
+
+
+
+# ENDPOINT FINGERDOWN CORRIGIDO E OTIMIZADO
+@app.post("/fingerdown1")
+async def fingerdown():
+    """Sequência FingerDown 1 - Movimentos coordenados para operação fingerdown"""
+    global fingerdown_running, current_test_cycle
+    
+    print("🎯 ENDPOINT /fingerdown1 ACESSADO DIRETAMENTE!")
+    
+    if fingerdown_running:
+        raise HTTPException(status_code=400, detail="FingerDown já em execução")
+    
+    try:
+        fingerdown_running = True
+        current_test_cycle += 1
+        
+        print("=== INICIANDO FINGERDOWN 1 ===")
+        print(f"📦 Ciclo de teste: {current_test_cycle}")
+        
+        # Verificar portas conectadas
+        port1_connected = serial_port1 and serial_port1.is_open
+        port2_connected = serial_port2 and serial_port2.is_open
+        
+        print(f"🔌 Porta 1 conectada: {port1_connected}")
+        print(f"🔌 Porta 2 conectada: {port2_connected}")
+        
+        if not port1_connected or not port2_connected:
+            raise HTTPException(status_code=400, detail="Portas necessárias não conectadas")
+        
+        # VERIFICAÇÃO INICIAL DE ESTADO
+        await verificar_estado_inicial()
+        
+        # SEQUÊNCIA FINGERDOWN OTIMIZADA
+        # 1. Avançar (Porta 1)
+        await enviar_comando_porta(1, "K2_1", "Avançar", timeout=3.0)
+        
+        # 2. Mover na posição (Porta 2) - COM VERIFICAÇÃO
+        await enviar_comando_porta(2, "G90 X29.787 Y82.987", "Mover para posição inicial", timeout=4.0)
+        
+        # 3. Pressionar (Porta 1)
+        await enviar_comando_porta(1, "P_1", "Pressionar", timeout=1.5)
+        
+        # 4. Travar (Porta 1)
+        await enviar_comando_porta(1, "K4_1", "Travar", timeout=1.0)
+        
+        # 5. Expandir a pilha (Porta 1) - COM CONTROLE
+        await enviar_comando_porta(1, "K7_1", "Expandir pilha - 1º", timeout=0.8)
+        await asyncio.sleep(0.2)  # Pequena pausa entre expansões
+        await enviar_comando_porta(1, "K7_1", "Expandir pilha - 2º", timeout=0.8)
+        
+        # 6. Tirar o pressionamento (Porta 1)
+        await enviar_comando_porta(1, "P_0", "Liberar pressão", timeout=1.0)
+        
+        print("✅ FINGERDOWN 1 CONCLUÍDO")
+
+        # Inicia sequência principal
+        await inicio1()
+
+        return {
+            "status": "success", 
+            "message": "FingerDown executado com sucesso",
+            "cycle": current_test_cycle,
+            "timestamp": datetime.now().isoformat(),
+            "port1_connected": port1_connected,
+            "port2_connected": port2_connected
+        }
+        
+    except Exception as e:
+        error_msg = f"❌ Erro crítico no FingerDown: {str(e)}"
+        print(error_msg)
+        await emergency_stop()
+        raise HTTPException(status_code=500, detail=error_msg)
+    finally:
+        fingerdown_running = False
+
+async def verificar_estado_inicial():
+    """Verifica e reseta o estado inicial das máquinas"""
+    try:
+        print("🔍 Verificando estado inicial...")
+        
+        # Reset inicial na Porta 2 (GRBL)
+        if serial_port2 and serial_port2.is_open:
+            serial_port2.write(b"\x18\n")  # Ctrl-X - Soft reset
+            await asyncio.sleep(1.0)
+            serial_port2.write(b"$X\n")    # Unlock
+            await asyncio.sleep(0.5)
+            serial_port2.write(b"G90\n")   # Absolute positioning
+            await asyncio.sleep(0.2)
+            serial_port2.write(b"G21\n")   # Millimeter units
+            await asyncio.sleep(0.2)
+            print("✅ Reset GRBL realizado")
+        
+        # Estado inicial Porta 1
+        if serial_port1 and serial_port1.is_open:
+            serial_port1.write(b"P_0\n")   # Garantir pressionamento liberado
+            await asyncio.sleep(0.3)
+            serial_port1.write(b"B1_0\n")  # Garantir IR desligado
+            await asyncio.sleep(0.3)
+            print("✅ Estado inicial Porta 1 configurado")
+            
+    except Exception as e:
+        print(f"⚠️ Aviso na verificação inicial: {e}")
+
+async def enviar_comando_porta(port_number: int, command: str, descricao: str, timeout: float = 2.0):
+    """Envia comando para porta com tratamento de erro e timeout"""
+    try:
+        print(f"📤 [{port_number}] {descricao}: {command}")
+        
+        port = None
+        if port_number == 1:
+            port = serial_port1
+        elif port_number == 2:
+            port = serial_port2
+        elif port_number == 3:
+            port = serial_port3
+            
+        if not port or not port.is_open:
+            raise Exception(f"Porta {port_number} não disponível")
+        
+        # Envia comando
+        port.write(f"{command}\n".encode())
+        
+        # Aguarda tempo baseado no comando
+        if timeout > 0:
+            await asyncio.sleep(timeout)
+            
+        # Verifica resposta para comandos GRBL
+        if port_number == 2 and command.startswith(('G', 'X', 'Y')):
+            await verificar_status_grbl()
+            
+        print(f"✅ [{port_number}] {descricao} concluído")
+        
+    except Exception as e:
+        error_msg = f"❌ Erro no comando {descricao}: {str(e)}"
+        print(error_msg)
+        raise
+
+async def verificar_status_grbl():
+    """Verifica status do GRBL para garantir que está pronto"""
+    try:
+        if serial_port2 and serial_port2.is_open:
+            # Limpa buffer
+            while serial_port2.in_waiting > 0:
+                serial_port2.read(serial_port2.in_waiting)
+            
+            # Solicita status
+            serial_port2.write(b"?\n")
+            await asyncio.sleep(0.1)
+            
+            # Lê resposta
+            if serial_port2.in_waiting > 0:
+                status = serial_port2.read(serial_port2.in_waiting).decode().strip()
+                if 'Idle' not in status and 'Run' not in status:
+                    print(f"⚠️ Status GRBL não ideal: {status}")
+                    # Tenta recuperar
+                    serial_port2.write(b"$X\n")
+                    await asyncio.sleep(0.5)
+                    
+    except Exception as e:
+        print(f"⚠️ Erro na verificação GRBL: {e}")
+
+async def emergency_stop():
+    """Para todas as operações em caso de emergência"""
+    try:
+        print("🛑 EMERGENCY STOP ATIVADO")
+        
+        if serial_port1 and serial_port1.is_open:
+            serial_port1.write(b"P_0\n")
+            serial_port1.write(b"B1_0\n")
+            
+        if serial_port2 and serial_port2.is_open:
+            serial_port2.write(b"\x85\n")  # Stop Jog
+            serial_port2.write(b"P_0\n")
+            
+        await asyncio.sleep(1.0)
+        print("✅ Emergency stop concluído")
+        
+    except Exception as e:
+        print(f"❌ Erro no emergency stop: {e}")
+
+async def inicio1():
+    """Início do teste real - sequência de comandos otimizada"""
+    global linha_atual, libera_envio_comandos
+    
+    try:
+        print("=== INICIANDO INÍCIO1 (TESTE REAL) ===")
+        
+        # Reset de estado
+        libera_envio_comandos = True
+        linha_atual = 0
+        
+        # Envia comando para iniciar IR
+        await enviar_comando_porta(1, "B1_1", "Iniciar IR", timeout=0.5)
+        await enviar_comando_porta(1, "B1_1", "Iniciar IR - 2º", timeout=2.5)
+        
+        # Inicia sequência de comandos
+        asyncio.create_task(executar_sequencia_comandos())
+        
+        return {"status": "success", "message": "Início1 executado"}
+        
+    except Exception as e:
+        print(f"❌ Erro no Início1: {e}")
+        await emergency_stop()
+        return {"status": "error", "message": str(e)}
+
+async def executar_sequencia_comandos():
+    """Executa a sequência completa de comandos com controle robusto"""
+    global linha_atual, libera_envio_comandos
+    
+    try:
+        print(f"🎯 INICIANDO SEQUÊNCIA DE {len(test_coordinates)} COMANDOS")
+        
+        for i, coord in enumerate(test_coordinates):
+            if not libera_envio_comandos:
+                print("⏸️ Sequência interrompida")
+                break
+                
+            linha_atual = i
+            print(f"🔹 Comando {i+1}/{len(test_coordinates)}")
+            
+            # Envia movimento
+            command = f"{coord['command']} X{coord['x']} Y{coord['y']}"
+            await enviar_comando_porta(2, command, f"Movimento {i+1}", timeout=1.5)
+            
+            # Pressiona botão
+            await pressionar_botao_otimizado(i+1)
+            
+            # Pequena pausa entre comandos
+            if i < len(test_coordinates) - 1:  # Não espera após o último
+                await asyncio.sleep(1.0)
+        
+        print("✅ SEQUÊNCIA DE COMANDOS CONCLUÍDA")
+        await ler_json_diretorio()
+    
+    except Exception as e:
+        print(f"❌ Erro na sequência de comandos: {e}")
+        await emergency_stop()
+
+async def pressionar_botao_otimizado(numero_comando: int):
+    """Função otimizada para pressionar botão"""
+    try:
+        if serial_port1 and serial_port1.is_open:
+            # Pressiona
+            await enviar_comando_porta(1, "P_1", f"Pressionar [{numero_comando}]", timeout=0.3)
+            
+            # Libera
+            await enviar_comando_porta(1, "P_0", f"Liberar [{numero_comando}]", timeout=0.3)
+            
+            # Solicita dados IR
+            if serial_port3 and serial_port3.is_open:
+                serial_port3.write(b"GET\n")
+                print(f"📡 [{numero_comando}] Dados IR solicitados")
+                
+        return True
+    except Exception as e:
+        print(f"❌ Erro ao pressionar botão [{numero_comando}]: {e}")
+        return False
+
+async def finalizar_processo():
+    """Finaliza o processo de forma segura"""
+    global libera_envio_comandos
+    
+    try:
+        print("🔄 Finalizando processo...")
+        libera_envio_comandos = False
+        
+        # Sequência de finalização
+        await enviar_comando_porta(1, "P_0", "Liberar pressão final", timeout=0.5)
+        await enviar_comando_porta(1, "B1_0", "Desligar IR", timeout=0.5)
+        await enviar_comando_porta(2, "P_0", "Reset Porta 2", timeout=0.5)
+        await enviar_comando_porta(2, "ENA", "Habilitar GRBL", timeout=0.5)
+        
+        # Move para posição segura
+        await enviar_comando_porta(2, "G90 X10 Y10", "Posição segura", timeout=2.0)
+        
+        print("✅ Processo finalizado com sucesso")
+        
+    except Exception as e:
+        print(f"⚠️ Erro na finalização: {e}")
+
+
+
+async def ler_json_diretorio(caminho_arquivo=None):
+    """
+    Lê um arquivo JSON de um diretório específico e retorna os dados no terminal
+    
+    Args:
+        caminho_arquivo (str): Caminho completo para o arquivo JSON. 
+                              Se None, usa um caminho padrão.
+    
+    Returns:
+        dict: Dados do JSON ou None em caso de erro
+    """
+    try:
+        # Se nenhum caminho for especificado, usa um padrão
+        if caminho_arquivo is None:
+            # Define um caminho padrão - ajuste conforme sua necessidade
+            caminho_arquivo = "config/comandos.json"
+        
+        print(f"📁 Tentando ler arquivo: {caminho_arquivo}")
+        
+        # Verifica se o arquivo existe
+        if not os.path.exists(caminho_arquivo):
+            print(f"❌ Arquivo não encontrado: {caminho_arquivo}")
+            await finalizar_processo()
+            return None
+        
+        # Lê o arquivo JSON
+        with open(caminho_arquivo, 'r', encoding='utf-8') as arquivo:
+            dados = json.load(arquivo)
+        
+        # Exibe os dados no terminal de forma organizada
+        print("📊 DADOS DO ARQUIVO JSON:")
+        print("=" * 50)
+        print(json.dumps(dados, indent=2, ensure_ascii=False))
+        print("=" * 50)
+        
+        # Mostra informações básicas sobre a estrutura
+        if isinstance(dados, list):
+            print(f"📋 Total de itens na lista: {len(dados)}")
+            if dados and isinstance(dados[0], dict):
+                print("🔑 Chaves disponíveis:", list(dados[0].keys()))
+        elif isinstance(dados, dict):
+            print("🔑 Chaves disponíveis:", list(dados.keys()))
+        
+        print("✅ LEITURA DO JSON CONCLUÍDA COM SUCESSO")
+        await finalizar_processo()
+        
+        return dados
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ Erro ao decodificar JSON: {e}")
+        await finalizar_processo()
+        return None
+    except Exception as e:
+        print(f"❌ Erro ao ler arquivo JSON: {e}")
+        await finalizar_processo()
+        return None
+
+
+
+
+
+@app.post("/emergency_stop")
+async def emergency_stop_endpoint():
+    """Endpoint para parada de emergência"""
+    await emergency_stop()
+    return {"status": "success", "message": "Emergency stop executado"}
+
+@app.post("/reset_sequence")
+async def reset_sequence():
+    """Reinicia a sequência de comandos"""
+    global linha_atual, libera_envio_comandos
+    linha_atual = 0
+    libera_envio_comandos = False
+    await emergency_stop()
+    return {"status": "success", "message": "Sequência reiniciada"}
+
+# Mantém a escuta IR
+async def listen_ir_data():
+    """Escuta dados da porta IR (Nano)"""
+    try:
+        if serial_port3 and serial_port3.is_open:
+            while serial_port3.is_open:
+                if serial_port3.in_waiting > 0:
+                    data = serial_port3.readline().decode().strip()
+                    if data:
+                        print(f"📟 DADO IR RECEBIDO: {data}")
+                await asyncio.sleep(0.1)
+    except Exception as e:
+        print(f"Erro na escuta IR: {e}")
+
+
+
+
+
+
+
+
+
+
+
+# SEUS OUTROS ENDPOINTS (mantenha os que você já tem)
 @app.get("/get_serial_ports")
 async def get_serial_ports():
     """Retorna lista de portas seriais disponíveis"""
@@ -555,36 +1031,12 @@ async def connect_serial_port(port_number: int, port_name: str):
         elif port_number == 3:
             if serial_port3 and serial_port3.is_open:
                 serial_port3.close()
-            serial_port3 = serial.Serial(port_name, 9600, timeout=1)  # Nano geralmente usa 9600
+            serial_port3 = serial.Serial(port_name, 9600, timeout=1)
             return {"status": "success", "message": f"Porta 3 conectada: {port_name}"}
         else:
             return {"status": "error", "message": "Número de porta inválido"}
     except Exception as e:
         print(f"Erro ao conectar porta {port_number}: {e}")
-        return {"status": "error", "message": str(e)}
-
-@app.get("/disconnect_port/{port_number}")
-async def disconnect_serial_port(port_number: int):
-    """Desconecta uma porta serial"""
-    global serial_port1, serial_port2, serial_port3
-    
-    try:
-        if port_number == 1 and serial_port1:
-            serial_port1.close()
-            serial_port1 = None
-            print("Porta 1 desconectada")
-        elif port_number == 2 and serial_port2:
-            serial_port2.close()
-            serial_port2 = None
-            print("Porta 2 desconectada")
-        elif port_number == 3 and serial_port3:
-            serial_port3.close()
-            serial_port3 = None
-            print("Porta 3 desconectada")
-            
-        return {"status": "success", "message": f"Porta {port_number} desconectada"}
-    except Exception as e:
-        print(f"Erro ao desconectar porta {port_number}: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.post("/send_home/{port_number}")
@@ -614,270 +1066,23 @@ async def send_home_command(port_number: int):
         print(f"Erro ao enviar comando Home: {e}")
         return {"status": "error", "message": str(e)}
 
-@app.post("/send_command/{port_number}")
-async def send_custom_command(port_number: int, command: str):
-    """Envia um comando customizado"""
-    global serial_port1, serial_port2, serial_port3
-    
-    try:
-        port = None
-        if port_number == 1:
-            port = serial_port1
-        elif port_number == 2:
-            port = serial_port2
-        elif port_number == 3:
-            port = serial_port3
-            
-        if not port or not port.is_open:
-            return {"status": "error", "message": f"Porta {port_number} não está conectada"}
-        
-        print(f"Enviando comando para Porta {port_number}: {command}")
-        
-        # Adiciona quebra de linha se necessário
-        if not command.endswith('\n'):
-            command += '\n'
-            
-        port.write(command.encode())
-        
-        return {"status": "success", "message": f"Comando enviado para Porta {port_number}: {command}"}
-        
-    except Exception as e:
-        print(f"Erro ao enviar comando: {e}")
-        return {"status": "error", "message": str(e)}
-
-async def fingerdown1():
-    """Sequência FingerDown 1"""
-    try:
-        print("=== INICIANDO FINGERDOWN 1 ===")
-        
-        # Verificar portas conectadas
-        port1_connected = serial_port1 and serial_port1.is_open
-        port2_connected = serial_port2 and serial_port2.is_open
-        
-        if not port1_connected:
-            print("⚠️ Aviso: Porta 1 não conectada")
-        if not port2_connected:
-            print("⚠️ Aviso: Porta 2 não conectada")
-        
-        # 1. Avançar (Porta 1)
-        if port1_connected:
-            serial_port1.write(b"K2_1\n")
-            print("Enviado: K2_1 (Avançar)")
-            await asyncio.sleep(2)
-
-        # 2. Mover na posição (Porta 2)  
-        if port2_connected:
-            command = "G90 X29.787 Y82.987\n"
-            serial_port2.write(command.encode())
-            print(f"Enviado: {command.strip()} (Mover para posição)")
-            await asyncio.sleep(3)
-
-        await asyncio.sleep(0.2)
-
-        # 3. Pressionar (Porta 1)
-        if port1_connected:
-            serial_port1.write(b"P_1\n")
-            print("Enviado: P_1 (Pressionar)")
-            await asyncio.sleep(1)
-
-        # 4. Travar (Porta 1)
-        if port1_connected:
-            serial_port1.write(b"K4_1\n")
-            print("Enviado: K4_1 (Travar)")
-            await asyncio.sleep(0.5)
-
-        # 5. Expandir a pilha (Porta 1)
-        if port1_connected:
-            serial_port1.write(b"K7_1\n")
-            print("Enviado: K7_1 (Expandir pilha - 1º)")
-            await asyncio.sleep(0.3)
-            serial_port1.write(b"K7_1\n")
-            print("Enviado: K7_1 (Expandir pilha - 2º)")
-            await asyncio.sleep(0.5)
-
-        # 6. Tirar o pressionamento (Porta 1)
-        if port1_connected:
-            serial_port1.write(b"P_0\n")
-            print("Enviado: P_0 (Liberar pressão)")
-            await asyncio.sleep(1.5)
-
-        print("✅ FINGERDOWN 1 CONCLUÍDO")
-        return {"status": "success", "message": "FingerDown executado"}
-        
-    except Exception as e:
-        print(f"❌ Erro no FingerDown: {e}")
-        return {"status": "error", "message": str(e)}
-
-async def inicio1():
-    """Início do teste real - sequência de comandos"""
-    global linha_atual, libera_envio_comandos
-    
-    try:
-        print("=== INICIANDO INÍCIO1 (TESTE REAL) ===")
-        
-        # Libera envio de comandos
-        libera_envio_comandos = True
-        linha_atual = 0
-        
-        # Envia comando para iniciar IR
-        if serial_port1 and serial_port1.is_open:
-            serial_port1.write(b"B1_1\n")
-            print("Enviado: B1_1 (Iniciar IR)")
-            await asyncio.sleep(0.1)
-            serial_port1.write(b"B1_1\n")  # Duplo comando
-            print("Enviado: B1_1 (Iniciar IR - 2º)")
-            await asyncio.sleep(2.9)
-        
-        # Inicia sequência de comandos
-        await enviar_proximo_comando()
-        
-        return {"status": "success", "message": "Início1 executado"}
-        
-    except Exception as e:
-        print(f"❌ Erro no Início1: {e}")
-        return {"status": "error", "message": str(e)}
-
-async def enviar_proximo_comando():
-    """Envia próximo comando da sequência"""
-    global linha_atual, libera_envio_comandos
-    
-    try:
-        if not libera_envio_comandos:
-            return
-            
-        if linha_atual < len(test_coordinates):
-            coord = test_coordinates[linha_atual]
-            command = f"{coord['command']} X{coord['x']} Y{coord['y']}\n"
-            
-            if serial_port2 and serial_port2.is_open:
-                serial_port2.write(command.encode())
-                print(f"Enviado comando {linha_atual + 1}: {command.strip()}")
-                
-                # Solicita dados IR após movimento
-                if serial_port3 and serial_port3.is_open:
-                    await asyncio.sleep(0.5)
-                    serial_port3.write(b"GET\n")
-                    print("Solicitado dados IR: GET")
-            
-            linha_atual += 1
-            
-            # Agenda próximo comando
-            await asyncio.sleep(2)
-            await enviar_proximo_comando()
-            
-        else:
-            print("✅ SEQUÊNCIA DE COMANDOS CONCLUÍDA")
-            libera_envio_comandos = False
-            
-            # Finaliza processo
-            if serial_port1 and serial_port1.is_open:
-                serial_port1.write(b"P_0\n")
-                serial_port1.write(b"B1_0\n")
-                serial_port1.write(b"K2_0\n")
-                serial_port1.write(b"ENA\n")
-                print("Processo finalizado - Comandos de reset enviados")
-                
-    except Exception as e:
-        print(f"❌ Erro ao enviar comando: {e}")
-
-async def listen_ir_data():
-    """Escuta dados da porta IR (Nano)"""
-    try:
-        if serial_port3 and serial_port3.is_open:
-            while serial_port3.is_open:
-                if serial_port3.in_waiting > 0:
-                    data = serial_port3.readline().decode().strip()
-                    if data:
-                        print(f"📟 DADO IR RECEBIDO: {data}")
-                        # Aqui você processaria os dados IR
-                await asyncio.sleep(0.1)
-    except Exception as e:
-        print(f"Erro na escuta IR: {e}")
-
-@app.post("/start_complete_process")
-async def start_complete_process(background_tasks: BackgroundTasks):
-    """Inicia o processo completo: FingerDown + Início1"""
-    try:
-        print("🚀 INICIANDO PROCESSO COMPLETO")
-        
-        # Executa FingerDown primeiro
-        fingerdown_result = await fingerdown1()
-        if fingerdown_result["status"] == "error":
-            return fingerdown_result
-            
-        # Aguarda um pouco e inicia o teste real
-        await asyncio.sleep(1)
-        inicio_result = await inicio1()
-        
-        # Inicia escuta de dados IR em background
-        background_tasks.add_task(listen_ir_data)
-        
-        return {"status": "success", "message": "Processo completo iniciado"}
-        
-    except Exception as e:
-        print(f"❌ Erro no processo completo: {e}")
-        return {"status": "error", "message": str(e)}
-
-@app.post("/test_ir_sequence")
-async def test_ir_sequence(background_tasks: BackgroundTasks):
-    """Testa apenas a sequência IR"""
-    try:
-        print("🧪 TESTANDO SEQUÊNCIA IR")
-        
-        # Inicia escuta IR
-        background_tasks.add_task(listen_ir_data)
-        
-        # Envia comando para iniciar IR
-        if serial_port1 and serial_port1.is_open:
-            serial_port1.write(b"B1_1\n")
-            await asyncio.sleep(0.1)
-            serial_port1.write(b"B1_1\n")
-            
-        # Executa sequência de teste
-        global linha_atual, libera_envio_comandos
-        linha_atual = 0
-        libera_envio_comandos = True
-        await enviar_proximo_comando()
-        
-        return {"status": "success", "message": "Teste IR iniciado"}
-        
-    except Exception as e:
-        print(f"❌ Erro no teste IR: {e}")
-        return {"status": "error", "message": str(e)}
-
-@app.post("/stop_process")
-async def stop_process():
-    """Para o processo em execução"""
-    global libera_envio_comandos
-    libera_envio_comandos = False
-    
-    # Envia comandos de parada
-    if serial_port1 and serial_port1.is_open:
-        serial_port1.write(b"P_0\n")
-        serial_port1.write(b"B1_0\n")
-        serial_port1.write(b"K2_0\n")
-        serial_port1.write(b"ENA\n")
-    
-    print("⏹️ PROCESSO PARADO")
-    return {"status": "success", "message": "Processo parado"}
-
-@app.post("/reset_system")
-async def reset_system():
-    """Reseta o sistema"""
-    global linha_atual, libera_envio_comandos
-    linha_atual = 0
-    libera_envio_comandos = False
-    
-    print("🔄 SISTEMA RESETADO")
-    return {"status": "success", "message": "Sistema resetado"}
+# Endpoint para listar todas as rotas
+@app.get("/routes")
+async def list_routes():
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods)
+            })
+    return {"routes": routes}
 
 if __name__ == "__main__":
     print("=== SERVIDOR INICIADO ===")
     print("Acesse: http://localhost:8000")
-    print("=== CONFIGURAÇÃO ===")
-    print("Porta 1: Comandos K/P (Arduino/Relés)")
-    print("Porta 2: Comandos G-code (GRBL)") 
-    print("Porta 3: Dados IR (Nano)")
+    print("=== CONFIGURAÇÃO CORS ===")
+    print("Origins permitidos: http://localhost:8080, http://127.0.0.1:8080")
     print("====================")
     
     import uvicorn
