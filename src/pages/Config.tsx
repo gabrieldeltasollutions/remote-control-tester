@@ -85,8 +85,14 @@ const Config = () => {
     setIsLoadingPorts(true);
     try {
       const response = await getSerialPorts();
-      setAvailablePorts(response.ports || []);
-      console.log(`Encontradas ${response.count || 0} portas seriais:`, response.ports);
+      // Filtrar apenas portas USB/ACM e algumas seriais principais
+      const filteredPorts = (response.ports || []).filter(port => 
+        port.device.includes('USB') || 
+        port.device.includes('ACM') || 
+        port.device.match(/ttyS[0-9]$/) // apenas ttyS0-ttyS9
+      );
+      setAvailablePorts(filteredPorts);
+      console.log(`Encontradas ${filteredPorts.length} portas seriais relevantes:`, filteredPorts);
     } catch (error) {
       console.error('Erro ao carregar portas seriais:', error);
       setAvailablePorts([]);
@@ -112,11 +118,58 @@ const Config = () => {
           ...prev,
           [`port${portNumber}`]: true
         }));
+        
+        // Se for porta IR (3 ou 4), executar reset automático
+        if (portNumber === 3 || portNumber === 4) {
+          console.log(`🔄 Executando reset automático na porta IR ${portNumber}...`);
+          await resetArduinoNano(portNumber);
+        }
+        
         console.log(`Porta ${portNumber} conectada: ${selectedPort}`);
       }
     } catch (error) {
       console.error(`Erro ao conectar porta ${portNumber}:`, error);
       alert(`Erro ao conectar porta ${portNumber}: ${error.message}`);
+    }
+  };
+
+  // Função para reset do Arduino Nano (portas IR)
+  const resetArduinoNano = async (portNumber) => {
+    try {
+      console.log(`🔄 Resetando Arduino Nano na porta ${portNumber}...`);
+      
+      // Enviar comando de reset via backend
+      const response = await sendCommand(portNumber, 'RESET');
+      
+      if (response.status === 'success') {
+        console.log(`✅ Reset executado na porta ${portNumber}`);
+        
+        // Aguardar estabilização
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Enviar comando GET automático após reset
+        await sendIRGetCommand(portNumber);
+      } else {
+        console.log(`⚠️ Reset manual necessário na porta ${portNumber}`);
+      }
+    } catch (error) {
+      console.error(`❌ Erro no reset da porta ${portNumber}:`, error);
+    }
+  };
+
+  // Função para enviar comando GET para IR
+  const sendIRGetCommand = async (portNumber) => {
+    try {
+      const response = await sendCommand(portNumber, 'GET');
+      
+      if (response.status === 'success') {
+        console.log(`→ GET enviado para porta IR ${portNumber}`);
+        addToSerialLog(`port${portNumber}`, `TX: GET`);
+      } else {
+        console.error(`Erro ao enviar GET para porta ${portNumber}:`, response.message);
+      }
+    } catch (error) {
+      console.error(`Erro na comunicação GET porta ${portNumber}:`, error);
     }
   };
 
@@ -211,19 +264,19 @@ const Config = () => {
     await sendGRBLCommand(command);
   };
 
-  // Função para comandos IR (Porta 3)
-  const sendIRCommand = async (command = 'GET') => {
+  // Função para comandos IR (Porta 3 e 4) - Atualizada
+  const sendIRCommand = async (portNumber, command = 'GET') => {
     try {
-      const response = await sendCommand(3, command);
+      const response = await sendCommand(portNumber, command);
       
       if (response.status === 'success') {
-        console.log('Comando IR enviado:', command);
-        addToSerialLog('port3', `TX: ${command}`);
+        console.log(`Comando IR enviado para porta ${portNumber}:`, command);
+        addToSerialLog(`port${portNumber}`, `TX: ${command}`);
       } else {
-        console.error('Erro ao enviar comando IR:', response.message);
+        console.error(`Erro ao enviar comando IR para porta ${portNumber}:`, response.message);
       }
     } catch (error) {
-      console.error('Erro na comunicação IR:', error);
+      console.error(`Erro na comunicação IR porta ${portNumber}:`, error);
     }
   };
 
@@ -236,17 +289,6 @@ const Config = () => {
       ...prev,
       [port]: prev[port] + logEntry
     }));
-  };
-
-  // Simulação de reset Arduino Nano (Web Serial API seria necessária para implementação real)
-  const resetArduinoNano = async () => {
-    try {
-      // Placeholder para reset real via Web Serial API
-      console.log('Reset Arduino Nano - implementação via Web Serial API necessária');
-      addToSerialLog('port3', 'Arduino Nano resetado (DTR/RTS)');
-    } catch (error) {
-      console.error('Erro ao resetar Arduino Nano:', error);
-    }
   };
 
   // Função para enviar comando manual por porta
@@ -278,11 +320,6 @@ const Config = () => {
       ...prev,
       [port]: ''
     }));
-  };
-
-  // Função para enviar comando GET padrão para IR
-  const sendGetCommand = () => {
-    sendIRCommand('GET');
   };
 
   return (
@@ -338,7 +375,7 @@ const Config = () => {
                         <div className="flex items-center justify-between">
                             <label className="font-bold text-[#014E7F]">Taxa:</label>
                             <RBSSelect>
-                                <option>{num === 3 ? '9600' : '115200'}</option>
+                                <option>{(num === 3 || num === 4) ? '9600' : '115200'}</option>
                             </RBSSelect>
                         </div>
                         <RBSButton 
@@ -768,7 +805,7 @@ const Config = () => {
                           <RBSButton 
                             variant="orange" 
                             className="w-28 text-[10px]"
-                            onClick={sendGetCommand}
+                            onClick={() => sendIRGetCommand(3)}
                           >
                             Teste GET (IR)
                           </RBSButton>
@@ -848,7 +885,7 @@ const Config = () => {
                           <RBSButton 
                             variant="orange" 
                             className="w-28 text-[10px]"
-                            onClick={resetArduinoNano}
+                            onClick={() => resetArduinoNano(3)}
                           >
                             Reset Nano
                           </RBSButton>
@@ -887,7 +924,7 @@ const Config = () => {
                           <RBSButton 
                             variant="blue" 
                             className="w-20 text-[9px]"
-                            onClick={sendGetCommand}
+                            onClick={() => sendIRGetCommand(3)}
                           >
                             GET IR
                           </RBSButton>
