@@ -29,6 +29,20 @@ from enum import Enum
 
 
 
+@app.get("/status")
+async def status():
+    """Endpoint para verificar status do servidor"""
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "online",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Servidor FastAPI está rodando"
+        }
+    )
+
+
+
 # ESTADOS DA MÁQUINA
 class MachineState(Enum):
     IDLE = "idle"
@@ -801,6 +815,126 @@ async def inicio1():
         await emergency_stop()
         return {"status": "error", "message": str(e)}
 
+
+
+
+
+
+# =========================
+# ENDPOINTS PARA O FRONTEND
+# =========================
+
+@app.post("/send_command/{port_number}")
+async def send_command_endpoint(port_number: int, request: Request):
+    """Endpoint para receber comandos do frontend"""
+    try:
+        # Parse do JSON do body
+        body = await request.json()
+        command = body.get('command', '')
+        
+        print(f"📤 Comando recebido do frontend - Porta {port_number}: {command}")
+        
+        # Processa comandos especiais
+        if command == 'START_CALIBRATION':
+            return await start_calibration_sequence(port_number)
+        elif command == 'START':
+            return await start_test_sequence(port_number)
+        elif command == 'FINGER_DOWN':
+            return await fingerdown()  # Usa o endpoint existente
+        else:
+            # Envia comando direto para a porta serial
+            return await send_raw_command(port_number, command)
+            
+    except Exception as e:
+        print(f"❌ Erro no endpoint send_command: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def send_raw_command(port_number: int, command: str):
+    """Envia comando direto para porta serial"""
+    global serial_port1, serial_port2, serial_port3
+    
+    try:
+        port = None
+        if port_number == 1:
+            port = serial_port1
+        elif port_number == 2:
+            port = serial_port2
+        elif port_number == 3:
+            port = serial_port3
+        else:
+            return {"status": "error", "message": f"Porta {port_number} inválida"}
+        
+        if not port or not port.is_open:
+            return {"status": "error", "message": f"Porta {port_number} não conectada"}
+        
+        # Envia comando
+        command_bytes = f"{command}\n".encode()
+        port.write(command_bytes)
+        
+        print(f"✅ Comando enviado para porta {port_number}: {command}")
+        
+        # Pequena pausa para processamento
+        await asyncio.sleep(0.1)
+        
+        return {
+            "status": "success", 
+            "message": f"Comando '{command}' enviado para porta {port_number}",
+            "command": command,
+            "port": port_number
+        }
+        
+    except Exception as e:
+        error_msg = f"Erro ao enviar comando: {str(e)}"
+        print(f"❌ {error_msg}")
+        return {"status": "error", "message": error_msg}
+
+async def start_calibration_sequence(port_number: int):
+    """Inicia sequência de calibração"""
+    try:
+        print("🔧 Iniciando calibração...")
+        
+        # Comandos de calibração
+        commands = ["G28", "G90", "G21", "$H"]
+        
+        for cmd in commands:
+            await send_raw_command(port_number, cmd)
+            await asyncio.sleep(1.0)
+        
+        return {
+            "status": "success", 
+            "message": "Calibração concluída",
+            "sequence": "calibration"
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": f"Erro na calibração: {str(e)}"}
+
+async def start_test_sequence(port_number: int):
+    """Inicia sequência de teste"""
+    try:
+        print("🧪 Iniciando teste...")
+        
+        # Comandos de teste básicos
+        commands = ["G90", "G1 X10 Y10 F1000", "G1 X20 Y20 F1000"]
+        
+        for cmd in commands:
+            await send_raw_command(port_number, cmd)
+            await asyncio.sleep(0.5)
+        
+        return {
+            "status": "success", 
+            "message": "Teste concluído",
+            "sequence": "test"
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": f"Erro no teste: {str(e)}"}
+
+
+
+
+
+
 async def executar_sequencia_comandos():
     """Executa a sequência completa de comandos com controle robusto"""
     global linha_atual, libera_envio_comandos
@@ -828,11 +962,14 @@ async def executar_sequencia_comandos():
                 await asyncio.sleep(1.0)
         
         print("✅ SEQUÊNCIA DE COMANDOS CONCLUÍDA")
-        await ler_json_diretorio()
+        await capturar_dados_ir()
     
     except Exception as e:
         print(f"❌ Erro na sequência de comandos: {e}")
         await emergency_stop()
+
+
+
 
 async def pressionar_botao_otimizado(numero_comando: int):
     """Função otimizada para pressionar botão"""
@@ -853,6 +990,38 @@ async def pressionar_botao_otimizado(numero_comando: int):
     except Exception as e:
         print(f"❌ Erro ao pressionar botão [{numero_comando}]: {e}")
         return False
+
+
+import aiohttp
+import asyncio
+
+
+
+async def capturar_dados_ir(nano='nano1', timeout=10000):
+    """Envia comando ao servidor Node.js e sempre finaliza o processo."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f'http://localhost:3001/get-nano/{nano}'
+            payload = {"timeout": timeout}
+
+            async with session.post(url, json=payload) as response:
+                if response.status == 200:
+                    return True
+                else:
+                    print(f"Erro na requisição: {response.status}")
+                    texto = await response.text()
+                    print(f"Detalhes do erro: {texto}")
+                    return False
+
+    except Exception as e:
+        print(f"Erro ao conectar com o servidor Node.js: {e}")
+        return False
+
+    finally:
+        # Sempre executado, independente do que acontecer
+        await finalizar_processo()
+
+
 
 async def finalizar_processo():
     """Finaliza o processo de forma segura"""
@@ -875,6 +1044,8 @@ async def finalizar_processo():
         
     except Exception as e:
         print(f"⚠️ Erro na finalização: {e}")
+
+
 
 
 
@@ -934,6 +1105,9 @@ async def ler_json_diretorio(caminho_arquivo=None):
         print(f"❌ Erro ao ler arquivo JSON: {e}")
         await finalizar_processo()
         return None
+
+
+
 
 
 
