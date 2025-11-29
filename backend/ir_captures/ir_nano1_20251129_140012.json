@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "captured_at": "2025-11-29T14:00:12.847289",
+    "source": "python_ir_reader",
+    "filename": "ir_nano1_20251129_140012.json"
+  },
+  "ir_data": {
+    "success": true,
+    "nano": "nano1",
+    "data": "0;0;0;0;X",
+    "timestamp": "2025-11-29T18:00:12.844Z",
+    "requestId": "b25cb798-d2c0-419d-9584-3680c81a27eb",
+    "trigger_source": "PYTHON_MAIN_READER"
+  }
+}

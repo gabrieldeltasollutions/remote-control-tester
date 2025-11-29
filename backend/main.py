@@ -1,3 +1,7 @@
+from tempfile import template
+from ir_reader import ir_reader, IRReader
+from typing import Dict, Optional, Any
+from pathlib import Path
 from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +30,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-
 
 
 @app.get("/status")
@@ -103,22 +106,24 @@ current_test_cycle = 0
 
 
 test_coordinates = [
-    {"command": "G90", "x": 41, "y": 135},     # BOTAO POWER
-    {"command": "G90", "x": 14, "y": 135},     # BOTAO FUNÇAO
-    {"command": "G90", "x": 41, "y": 114},     # BOTAO TEMPORIZADO
-    {"command": "G90", "x": 14, "y": 114},     # BOTAO VELOCIDADE
-    {"command": "G90", "x": 28, "y": 127},     # BOTAO TEMP MAX
-    {"command": "G90", "x": 28, "y": 102},     # BOTAO TEMP DOWN
-    {"command": "G90", "x": 42, "y": 96},      # OCULTO ABAIXO TEMPORIZADOR
-    {"command": "G90", "x": 14, "y": 94},      # OSCILAR
-    {"command": "G90", "x": 14, "y": 71},      # TURBO
-    {"command": "G90", "x": 24, "y": 71},      # CONFORTO
-    {"command": "G90", "x": 34, "y": 71},      # LIMPAR
-    {"command": "G90", "x": 44, "y": 71},      # IONAIR
-    {"command": "G90", "x": 44, "y": 55},      # OCULTO ABAIXO IONAIR
-    {"command": "G90", "x": 34, "y": 55},      # ANTIMORFO
-    {"command": "G90", "x": 24, "y": 55},      # VISOR
-    {"command": "G90", "x": 14, "y": 55}       # DORMIR
+    {"command": "G90", "x": 41, "y": 135, "nome": "POWER"},
+    {"command": "G90", "x": 14, "y": 135, "nome": "FUNCAO"},
+    {"command": "G90", "x": 28, "y": 127, "nome": "TEMP_MAX"},
+    {"command": "G90", "x": 41, "y": 114, "nome": "TEMPORIZADOR"},
+    {"command": "G90", "x": 41, "y": 114, "nome": "TEMPORIZADOR_2"},
+    {"command": "G90", "x": 28, "y": 102, "nome": "TEMP_DOWN"},
+    {"command": "G90", "x": 14, "y": 114, "nome": "VELOCIDADE"},
+    {"command": "G90", "x": 14, "y": 94, "nome": "OSCILAR"},
+    {"command": "G90", "x": 14, "y": 71, "nome": "TURBO"},
+    {"command": "G90", "x": 24, "y": 71, "nome": "CONFORTO"},
+    {"command": "G90", "x": 44, "y": 71, "nome": "IONAIR"},
+    {"command": "G90", "x": 24, "y": 55, "nome": "VISOR"},
+    {"command": "G90", "x": 14, "y": 55, "nome": "DORMIR"},
+    {"command": "G90", "x": 41, "y": 135, "nome": "POWER_FINAL"},
+    {"command": "G90", "x": 34, "y": 71, "nome": "LIMPAR"},
+    {"command": "G90", "x": 34, "y": 55, "nome": "ANTIMORFO"}
+    #{"command": "G90", "x": 42, "y": 96},      # OCULTO ABAIXO TEMPORIZADOR
+    #{"command": "G90", "x": 44, "y": 55},      # OCULTO ABAIXO IONAIR
 ]
 
 
@@ -936,11 +941,16 @@ async def start_test_sequence(port_number: int):
 
 
 async def executar_sequencia_comandos():
-    """Executa a sequência completa de comandos com controle robusto"""
+    """Executa a sequência completa de comandos COM PRESSIONAMENTO e salva UM único JSON consolidado"""
     global linha_atual, libera_envio_comandos
+    
+    # Lista para armazenar TODOS os dados IR capturados
+    todos_dados_ir = []
     
     try:
         print(f"🎯 INICIANDO SEQUÊNCIA DE {len(test_coordinates)} COMANDOS")
+        print("📝 Modo: UM único JSON consolidado com todos os botões")
+        print("🔘 AGORA COM PRESSIONAMENTO DE BOTÕES!")
         
         for i, coord in enumerate(test_coordinates):
             if not libera_envio_comandos:
@@ -948,27 +958,97 @@ async def executar_sequencia_comandos():
                 break
                 
             linha_atual = i
-            print(f"🔹 Comando {i+1}/{len(test_coordinates)}")
+            nome_botao = coord.get('nome', f'Botão {i+1}')
+            print(f"🔹 Comando {i+1}/{len(test_coordinates)} - {nome_botao}")
             
-            # Envia movimento
+            # 1. Move para posição
             command = f"{coord['command']} X{coord['x']} Y{coord['y']}"
             await enviar_comando_porta(2, command, f"Movimento {i+1}", timeout=1.5)
             
-            # Pressiona botão
-            await pressionar_botao_otimizado(i+1)
+            # 2. ✅ CORREÇÃO: PRESSIONA O BOTÃO antes de capturar IR
+            print(f"🔘 [{i+1}] Pressionando botão {nome_botao}...")
             
-            # Pequena pausa entre comandos
-            if i < len(test_coordinates) - 1:  # Não espera após o último
+            # Pressiona o botão
+            await enviar_comando_porta(1, "P_1", f"Pressionar {nome_botao}", timeout=0.3)
+            await asyncio.sleep(0.2)  # Pequena pausa para estabilização
+            
+            # Libera o botão
+            await enviar_comando_porta(1, "P_0", f"Liberar {nome_botao}", timeout=0.3)
+            
+            # 3. Captura dados IR APÓS pressionar o botão
+            print(f"📡 [{i+1}] Capturando dados IR após pressionar {nome_botao}...")
+            resultado_ir = await capturar_dados_ir(
+                nano='nano1',
+                timeout=8000,
+                salvar_captura=False  # NÃO salva individualmente
+            )
+            
+            # Adiciona à lista consolidada
+            if resultado_ir.get('success'):
+                dados_botao = {
+                    "botao_numero": i + 1,
+                    "coordenadas": coord,
+                    "timestamp": resultado_ir.get('timestamp'),
+                    "request_id": resultado_ir.get('request_id'),
+                    "dados_ir": resultado_ir.get('data'),
+                    "nome_botao": nome_botao,
+                    "comando_executado": f"Pressionar {nome_botao} em X{coord['x']} Y{coord['y']}"
+                }
+                todos_dados_ir.append(dados_botao)
+                print(f"✅ [{i+1}] Botão pressionado e dados IR capturados")
+            else:
+                print(f"❌ [{i+1}] Falha na captura IR: {resultado_ir.get('error')}")
+            
+            # 4. Pequena pausa entre comandos
+            if i < len(test_coordinates) - 1:
                 await asyncio.sleep(1.0)
         
         print("✅ SEQUÊNCIA DE COMANDOS CONCLUÍDA")
-        await capturar_dados_ir()
+        print(f"📊 Total de botões pressionados: {len(todos_dados_ir)}")
+        
+        # 5. SALVA UM ÚNICO JSON COM TODOS OS DADOS
+        if todos_dados_ir:
+            await salvar_json_consolidado(todos_dados_ir)
+        else:
+            print("⚠️ Nenhum dado IR foi capturado")
+        
+        # 6. FINALIZA O PROCESSO
+        await finalizar_processo()
     
     except Exception as e:
         print(f"❌ Erro na sequência de comandos: {e}")
         await emergency_stop()
 
-
+async def capturar_dados_ir(nano: str = 'nano1', timeout: int = 10000, 
+                           salvar_captura: bool = False) -> Dict[str, Any]:  # Mude para False por padrão
+    """
+    CAPTURA dados IR do Nano (APENAS LEITURA)
+    Agora retorna os dados para serem consolidados em um único JSON
+    """
+    try:
+        print(f"🎯 Capturando IR do {nano}...")
+        
+        async with IRReader() as reader:
+            # Captura os dados IR
+            result = await reader.capture_ir_data(nano=nano, timeout=timeout)
+            
+            if result.get('success'):
+                print(f"✅ Dados IR capturados com sucesso!")
+                return {
+                    "success": True,
+                    "nano": nano,
+                    "data": result.get('data'),
+                    "timestamp": result.get('timestamp'),
+                    "request_id": result.get('requestId')
+                }
+            else:
+                print(f"❌ Falha na captura IR: {result.get('error')}")
+                return result
+                
+    except Exception as e:
+        error_msg = f"❌ Erro na captura IR: {str(e)}"
+        print(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 async def pressionar_botao_otimizado(numero_comando: int):
@@ -997,31 +1077,152 @@ import asyncio
 
 
 
-async def capturar_dados_ir(nano='nano1', timeout=10000):
-    """Envia comando ao servidor Node.js e sempre finaliza o processo."""
+async def pressionar_botao_otimizado(numero_comando: int):
+    """Função otimizada para pressionar botão + CAPTURA IR"""
     try:
-        async with aiohttp.ClientSession() as session:
-            url = f'http://localhost:3001/get-nano/{nano}'
-            payload = {"timeout": timeout}
-
-            async with session.post(url, json=payload) as response:
-                if response.status == 200:
-                    return True
-                else:
-                    print(f"Erro na requisição: {response.status}")
-                    texto = await response.text()
-                    print(f"Detalhes do erro: {texto}")
-                    return False
-
+        if serial_port1 and serial_port1.is_open:
+            print(f"🔘 [{numero_comando}] Pressionando botão...")
+            
+            # 1. Pressiona o botão (GERA o sinal IR)
+            await enviar_comando_porta(1, "P_1", f"Pressionar [{numero_comando}]", timeout=0.3)
+            
+            # 2. Pequena pausa para o IR ser gerado
+            await asyncio.sleep(0.2)
+            
+            # 3. Libera o botão
+            await enviar_comando_porta(1, "P_0", f"Liberar [{numero_comando}]", timeout=0.3)
+            
+            # 4. CAPTURA os dados IR gerados (LEITURA via Node.js)
+            print(f"📡 [{numero_comando}] Capturando dados IR...")
+            capture_task = asyncio.create_task(
+                capturar_dados_ir(
+                    nano='nano1',
+                    timeout=8000,  # 8 segundos timeout
+                    salvar_captura=True
+                )
+            )
+            
+            # Não espera pela captura - executa em background
+            # Para esperar: await capture_task
+            
+            print(f"✅ [{numero_comando}] Ação concluída - Captura IR em background")
+            
+        return True
+        
     except Exception as e:
-        print(f"Erro ao conectar com o servidor Node.js: {e}")
+        print(f"❌ Erro ao pressionar botão [{numero_comando}]: {e}")
         return False
 
-    finally:
-        # Sempre executado, independente do que acontecer
-        await finalizar_processo()
+async def _salvar_resposta_arquivo(dados: Dict[str, Any], nano: str, diretorio_saida: Optional[str] = None) -> None:
+    """Salva a resposta em arquivo JSON organizado"""
+    try:
+        # Define diretório de saída
+        if diretorio_saida:
+            diretorio = Path(diretorio_saida)
+        else:
+            # Diretório padrão organizado
+            diretorio = Path.home() / "ir_data" / "capturas"
+        
+        # Cria diretório se não existir
+        diretorio.mkdir(parents=True, exist_ok=True)
+        
+        # Nome do arquivo com timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nome_arquivo = f"ir_{nano}_{timestamp}.json"
+        caminho_arquivo = diretorio / nome_arquivo
+        
+        # Prepara dados para salvar
+        dados_arquivo = {
+            "metadata": {
+                "nano": nano,
+                "timestamp": dados.get('timestamp'),
+                "request_id": dados.get('requestId'),
+                "trigger_source": dados.get('trigger_source', 'PYTHON_API'),
+                "arquivo_salvo_em": datetime.now().isoformat()
+            },
+            "dados_ir": dados.get('data', {})
+        }
+        
+        # Salva arquivo
+        with open(caminho_arquivo, 'w', encoding='utf-8') as f:
+            json.dump(dados_arquivo, f, indent=2, ensure_ascii=False)
+        
+        print(f"💾 Dados salvos em: {caminho_arquivo}")
+        
+        # Também salva um resumo no diretório de logs
+        await _salvar_log_resumo(dados_arquivo, nano)
+        
+    except Exception as e:
+        print(f"⚠️ Erro ao salvar arquivo: {e}")
 
 
+async def _salvar_log_resumo(dados: Dict[str, Any], nano: str) -> None:
+    """Salva um resumo da captura em arquivo de log consolidado"""
+    try:
+        log_dir = Path.home() / "ir_data" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        
+        log_file = log_dir / f"capturas_{datetime.now().strftime('%Y%m')}.json"
+        
+        # Lê log existente ou cria novo
+        log_data = []
+        if log_file.exists():
+            with open(log_file, 'r', encoding='utf-8') as f:
+                log_data = json.load(f)
+        
+        # Adiciona nova entrada
+        entrada_log = {
+            "timestamp": dados["metadata"]["arquivo_salvo_em"],
+            "nano": nano,
+            "request_id": dados["metadata"]["request_id"],
+            "arquivo": dados["metadata"]["arquivo_salvo_em"].split('.')[0] + ".json"
+        }
+        
+        log_data.append(entrada_log)
+        
+        # Salva log atualizado
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, indent=2, ensure_ascii=False)
+            
+    except Exception as e:
+        print(f"⚠️ Erro ao salvar log: {e}")
+
+async def salvar_json_consolidado(dados_ir: list):
+    """Salva TODOS os dados IR em um único arquivo JSON consolidado"""
+    try:
+        # Cria diretório se não existir
+        output_dir = Path("ir_captures_consolidado")
+        output_dir.mkdir(exist_ok=True)
+        
+        # Nome do arquivo com timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"mapeamento_ir_completo_{timestamp}.json"
+        filepath = output_dir / filename
+        
+        # Estrutura do arquivo consolidado
+        dados_consolidados = {
+            "metadata": {
+                "arquivo_salvo_em": datetime.now().isoformat(),
+                "total_botoes_mapeados": len(dados_ir),
+                "sequencia_executada": "FingerDown + Início1",
+                "timestamp_inicio": dados_ir[0]['timestamp'] if dados_ir else None,
+                "timestamp_fim": datetime.now().isoformat()
+            },
+            "botoes_mapeados": dados_ir
+        }
+        
+        # Salva o arquivo
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(dados_consolidados, f, indent=2, ensure_ascii=False)
+        
+        print(f"💾 ARQUIVO CONSOLIDADO SALVO: {filepath}")
+        print(f"📊 Total de botões mapeados: {len(dados_ir)}")
+        
+        return str(filepath)
+        
+    except Exception as e:
+        print(f"❌ Erro ao salvar JSON consolidado: {e}")
+        return ""
 
 async def finalizar_processo():
     """Finaliza o processo de forma segura"""
@@ -1046,7 +1247,34 @@ async def finalizar_processo():
         print(f"⚠️ Erro na finalização: {e}")
 
 
-
+async def ler_capturas_ir(diretorio: Optional[str] = None) -> list:
+    """Lê todas as capturas IR salvas"""
+    if not diretorio:
+        diretorio = Path.home() / "ir_data" / "capturas"
+    else:
+        diretorio = Path(diretorio)
+    
+    if not diretorio.exists():
+        print(f"❌ Diretório não encontrado: {diretorio}")
+        return []
+    
+    arquivos_json = list(diretorio.glob("ir_*.json"))
+    capturas = []
+    
+    for arquivo in arquivos_json:
+        try:
+            with open(arquivo, 'r', encoding='utf-8') as f:
+                dados = json.load(f)
+                capturas.append({
+                    "arquivo": arquivo.name,
+                    "caminho": str(arquivo),
+                    "dados": dados
+                })
+        except Exception as e:
+            print(f"⚠️ Erro ao ler arquivo {arquivo}: {e}")
+    
+    print(f"📂 Encontradas {len(capturas)} capturas IR")
+    return capturas
 
 
 async def ler_json_diretorio(caminho_arquivo=None):
@@ -1108,7 +1336,68 @@ async def ler_json_diretorio(caminho_arquivo=None):
 
 
 
+@app.post("/capturar-ir/{nano}")
+async def capturar_ir_endpoint(nano: str):
+    """Endpoint para CAPTURAR dados IR (apenas leitura)"""
+    try:
+        result = await capturar_dados_ir(nano=nano, salvar_captura=True)
+        
+        if result.get('success'):
+            return {
+                "status": "success",
+                "message": f"Dados IR capturados do {nano}",
+                "nano": nano,
+                "timestamp": result.get('timestamp'),
+                "request_id": result.get('request_id'),
+                "saved_file": result.get('saved_file')
+            }
+        else:
+            return {
+                "status": "error", 
+                "message": result.get('error', 'Erro desconhecido'),
+                "nano": nano
+            }
+            
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
+@app.get("/status-nanos")
+async def status_nanos_endpoint():
+    """Verifica status dos Nanos via Node.js (apenas leitura)"""
+    try:
+        async with IRReader() as reader:
+            status = await reader.get_nano_status()
+            return status
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/testar-captura-ir")
+async def testar_captura_ir():
+    """Testa a captura IR de ambos os Nanos"""
+    try:
+        resultados = {}
+        
+        # Testa Nano 1
+        async with IRReader() as reader:
+            resultado_nano1 = await reader.capture_ir_data('nano1', timeout=5000)
+            resultados['nano1'] = resultado_nano1
+            
+            # Pequena pausa
+            await asyncio.sleep(1)
+            
+            # Testa Nano 2
+            resultado_nano2 = await reader.capture_ir_data('nano2', timeout=5000)
+            resultados['nano2'] = resultado_nano2
+        
+        return {
+            "status": "success",
+            "message": "Teste de captura IR concluído",
+            "resultados": resultados,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 

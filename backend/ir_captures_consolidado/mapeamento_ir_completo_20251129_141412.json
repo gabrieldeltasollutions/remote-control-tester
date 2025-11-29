@@ -1,0 +1,219 @@
+{
+  "metadata": {
+    "arquivo_salvo_em": "2025-11-29T14:14:12.291280",
+    "total_botoes_mapeados": 16,
+    "sequencia_executada": "FingerDown + Início1",
+    "timestamp_inicio": "2025-11-29T18:12:57.290Z",
+    "timestamp_fim": "2025-11-29T14:14:12.291287"
+  },
+  "botoes_mapeados": [
+    {
+      "botao_numero": 1,
+      "coordenadas": {
+        "command": "G90",
+        "x": 41,
+        "y": 135,
+        "nome": "POWER"
+      },
+      "timestamp": "2025-11-29T18:12:57.290Z",
+      "request_id": "dd0ef92f-1ac1-4753-9118-eae79a79dc2b",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "POWER"
+    },
+    {
+      "botao_numero": 2,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 135,
+        "nome": "FUNCAO"
+      },
+      "timestamp": "2025-11-29T18:13:02.289Z",
+      "request_id": "0ea30f52-2157-4be3-8398-252f1872a857",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "FUNCAO"
+    },
+    {
+      "botao_numero": 3,
+      "coordenadas": {
+        "command": "G90",
+        "x": 28,
+        "y": 127,
+        "nome": "TEMP_MAX"
+      },
+      "timestamp": "2025-11-29T18:13:07.289Z",
+      "request_id": "fe4a2a4f-d702-4c1d-b6e1-9d568471b51c",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "TEMP_MAX"
+    },
+    {
+      "botao_numero": 4,
+      "coordenadas": {
+        "command": "G90",
+        "x": 41,
+        "y": 114,
+        "nome": "TEMPORIZADOR"
+      },
+      "timestamp": "2025-11-29T18:13:12.289Z",
+      "request_id": "727b8ffd-25ff-4b04-8990-977cf9c5beed",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "TEMPORIZADOR"
+    },
+    {
+      "botao_numero": 5,
+      "coordenadas": {
+        "command": "G90",
+        "x": 41,
+        "y": 114,
+        "nome": "TEMPORIZADOR_2"
+      },
+      "timestamp": "2025-11-29T18:13:17.289Z",
+      "request_id": "c950403a-a9c6-4a22-a31b-ef452a65aff6",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "TEMPORIZADOR_2"
+    },
+    {
+      "botao_numero": 6,
+      "coordenadas": {
+        "command": "G90",
+        "x": 28,
+        "y": 102,
+        "nome": "TEMP_DOWN"
+      },
+      "timestamp": "2025-11-29T18:13:22.289Z",
+      "request_id": "c16ff2a9-e312-4aa4-9b5b-f0f6462960ce",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "TEMP_DOWN"
+    },
+    {
+      "botao_numero": 7,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 114,
+        "nome": "VELOCIDADE"
+      },
+      "timestamp": "2025-11-29T18:13:27.289Z",
+      "request_id": "55090df1-f793-41e3-83a7-2a5d67989ee1",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "VELOCIDADE"
+    },
+    {
+      "botao_numero": 8,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 94,
+        "nome": "OSCILAR"
+      },
+      "timestamp": "2025-11-29T18:13:32.289Z",
+      "request_id": "837cb06c-3a45-4c08-84ce-9bb967030ea6",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "OSCILAR"
+    },
+    {
+      "botao_numero": 9,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 71,
+        "nome": "TURBO"
+      },
+      "timestamp": "2025-11-29T18:13:37.290Z",
+      "request_id": "2a2c6183-650c-4f98-8c37-38e0097115a0",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "TURBO"
+    },
+    {
+      "botao_numero": 10,
+      "coordenadas": {
+        "command": "G90",
+        "x": 24,
+        "y": 71,
+        "nome": "CONFORTO"
+      },
+      "timestamp": "2025-11-29T18:13:42.289Z",
+      "request_id": "26246380-caf8-4192-99b4-ff57b9218fdc",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "CONFORTO"
+    },
+    {
+      "botao_numero": 11,
+      "coordenadas": {
+        "command": "G90",
+        "x": 44,
+        "y": 71,
+        "nome": "IONAIR"
+      },
+      "timestamp": "2025-11-29T18:13:47.289Z",
+      "request_id": "25a40cc8-4b54-4daf-8125-83c4868e2c98",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "IONAIR"
+    },
+    {
+      "botao_numero": 12,
+      "coordenadas": {
+        "command": "G90",
+        "x": 24,
+        "y": 55,
+        "nome": "VISOR"
+      },
+      "timestamp": "2025-11-29T18:13:52.289Z",
+      "request_id": "67c7ad00-eb5e-4497-9979-f1047bfcef18",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "VISOR"
+    },
+    {
+      "botao_numero": 13,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 55,
+        "nome": "DORMIR"
+      },
+      "timestamp": "2025-11-29T18:13:57.289Z",
+      "request_id": "09df2784-4775-4e2e-9b0d-68b32b9c26a2",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "DORMIR"
+    },
+    {
+      "botao_numero": 14,
+      "coordenadas": {
+        "command": "G90",
+        "x": 41,
+        "y": 135,
+        "nome": "POWER_FINAL"
+      },
+      "timestamp": "2025-11-29T18:14:02.289Z",
+      "request_id": "54dc4ab0-cf09-42c8-a818-8149c8f85695",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "POWER_FINAL"
+    },
+    {
+      "botao_numero": 15,
+      "coordenadas": {
+        "command": "G90",
+        "x": 34,
+        "y": 71,
+        "nome": "LIMPAR"
+      },
+      "timestamp": "2025-11-29T18:14:07.289Z",
+      "request_id": "a3e73cb2-d37a-413a-b029-cdfe5d264018",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "LIMPAR"
+    },
+    {
+      "botao_numero": 16,
+      "coordenadas": {
+        "command": "G90",
+        "x": 34,
+        "y": 55,
+        "nome": "ANTIMORFO"
+      },
+      "timestamp": "2025-11-29T18:14:12.289Z",
+      "request_id": "ef56996e-ef2d-443a-9f06-388f08b802ad",
+      "dados_ir": "0;0;0;0;X",
+      "nome_botao": "ANTIMORFO"
+    }
+  ]
+}

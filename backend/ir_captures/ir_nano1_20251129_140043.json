@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "captured_at": "2025-11-29T14:00:43.461465",
+    "source": "python_ir_reader",
+    "filename": "ir_nano1_20251129_140043.json"
+  },
+  "ir_data": {
+    "success": true,
+    "nano": "nano1",
+    "data": "AF-FA-AB-BE-FF-EA-FF-FF-FF-EE-EA\n-BB-FA-EF-EB-EB-FF-FF-EF-EB-FF-F\nF-AE-FF-AB-AF;\nAF-FA-AB-BE-FF-EA-FF-FF-FF-EE-EA\n-BB-FA-EF-EB-EB-FF-FF-EF-EB-FF-F\nF-AE-FF-AB-AF;0;\nAF-FA-A\nB-BE-FF-EA-FF-FF-FF-EE-EA-BB-FA-EF-EE-FB-FF-FF-EF-EB-FF-F\nF-AE-FF-AE-BF;X",
+    "timestamp": "2025-11-29T18:00:43.458Z",
+    "requestId": "368f1a5f-3002-472a-a3dc-b524910305f8",
+    "trigger_source": "PYTHON_MAIN_READER"
+  }
+}
