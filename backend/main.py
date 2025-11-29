@@ -3,7 +3,7 @@ from ir_reader import ir_reader, IRReader
 from typing import Dict, Optional, Any
 from pathlib import Path
 from fastapi import FastAPI, Request, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import serial
 import serial.tools.list_ports
@@ -13,10 +13,206 @@ from datetime import datetime
 import os
 from fastapi import HTTPException
 import json
+import cv2
+import numpy as np
+from contextlib import asynccontextmanager
+import logging
 
-app = FastAPI()
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
 
-# CONFIGURAÇÃO CORS CORRIGIDA - DEVE VIR ANTES DE TODAS AS ROTAS
+# Configurar logging para câmeras
+camera_logger = logging.getLogger("camera")
+camera_logger.setLevel(logging.INFO)
+
+# =========================
+# GERENCIAMENTO DE CÂMERAS
+# =========================
+MAX_CAMERAS = 4
+camera_managers: Dict[int, 'CameraManager'] = {}
+
+class CameraManager:
+    """Gerenciador de câmera com reconexão automática"""
+    
+    def __init__(self, camera_id: int):
+        self.camera_id = camera_id
+        self.cap: Optional[cv2.VideoCapture] = None
+        self.latest_frame: Optional[np.ndarray] = None
+        self.is_running = False
+        self.lock = threading.Lock()
+        self.thread: Optional[threading.Thread] = None
+        self.reconnect_attempts = 0
+        self.max_reconnect_attempts = 10
+        self.reconnect_delay = 2  # segundos
+        
+    def connect(self) -> bool:
+        """Tenta conectar à câmera"""
+        try:
+            if self.cap is not None:
+                self.cap.release()
+            
+            self.cap = cv2.VideoCapture(self.camera_id)
+            
+            if not self.cap.isOpened():
+                camera_logger.warning(f"Câmera {self.camera_id} não pôde ser aberta")
+                return False
+            
+            # Configurar propriedades da câmera para melhor performance
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduzir buffer para frames mais recentes
+            
+            camera_logger.info(f"Câmera {self.camera_id} conectada com sucesso")
+            self.reconnect_attempts = 0
+            return True
+            
+        except Exception as e:
+            camera_logger.error(f"Erro ao conectar câmera {self.camera_id}: {e}")
+            return False
+    
+    def capture_loop(self):
+        """Loop de captura em thread separada"""
+        while self.is_running:
+            try:
+                if self.cap is None or not self.cap.isOpened():
+                    if self.reconnect_attempts < self.max_reconnect_attempts:
+                        camera_logger.info(f"Tentando reconectar câmera {self.camera_id}...")
+                        if self.connect():
+                            continue
+                        else:
+                            self.reconnect_attempts += 1
+                            time.sleep(self.reconnect_delay)
+                            continue
+                    else:
+                        camera_logger.error(f"Câmera {self.camera_id} não pôde ser reconectada após {self.max_reconnect_attempts} tentativas")
+                        time.sleep(self.reconnect_delay)
+                        continue
+                
+                ret, frame = self.cap.read()
+                
+                if not ret:
+                    camera_logger.warning(f"Falha ao ler frame da câmera {self.camera_id}")
+                    self.cap.release()
+                    self.cap = None
+                    continue
+                
+                with self.lock:
+                    self.latest_frame = frame.copy()
+                    
+            except Exception as e:
+                camera_logger.error(f"Erro na captura da câmera {self.camera_id}: {e}")
+                if self.cap is not None:
+                    try:
+                        self.cap.release()
+                    except:
+                        pass
+                    self.cap = None
+                time.sleep(0.1)
+    
+    def start(self):
+        """Inicia a captura da câmera"""
+        if self.is_running:
+            return
+        
+        if not self.connect():
+            camera_logger.warning(f"Não foi possível conectar à câmera {self.camera_id} (pode não estar disponível)")
+            return
+        
+        self.is_running = True
+        self.thread = threading.Thread(target=self.capture_loop, daemon=True)
+        self.thread.start()
+        camera_logger.info(f"Câmera {self.camera_id} iniciada")
+    
+    def stop(self):
+        """Para a captura da câmera"""
+        self.is_running = False
+        
+        if self.thread is not None:
+            self.thread.join(timeout=2)
+        
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
+        
+        camera_logger.info(f"Câmera {self.camera_id} parada")
+    
+    def get_frame(self) -> Optional[np.ndarray]:
+        """Obtém o frame mais recente"""
+        with self.lock:
+            if self.latest_frame is not None:
+                return self.latest_frame.copy()
+        return None
+    
+    def is_connected(self) -> bool:
+        """Verifica se a câmera está conectada"""
+        return self.cap is not None and self.cap.isOpened()
+
+def detect_cameras() -> list:
+    """Detecta câmeras disponíveis"""
+    available_cameras = []
+    for i in range(MAX_CAMERAS):
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            available_cameras.append(i)
+            cap.release()
+    return available_cameras
+
+def generate_frame(camera_id: int):
+    """Gera frames para streaming"""
+    while True:
+        manager = camera_managers.get(camera_id)
+        if manager is None:
+            break
+        
+        frame = manager.get_frame()
+        
+        if frame is None:
+            # Enviar frame preto se não houver frame disponível
+            frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(frame, f"Camera {camera_id} - Aguardando...", 
+                       (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        
+        # Codificar frame como JPEG
+        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if not ret:
+            continue
+        
+        frame_bytes = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        
+        # Controlar FPS do stream
+        time.sleep(1/30)  # ~30 FPS
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gerencia o ciclo de vida da aplicação"""
+    # Startup: Inicializar câmeras
+    camera_logger.info("Inicializando câmeras...")
+    available_cameras = detect_cameras()
+    camera_logger.info(f"Câmeras detectadas: {available_cameras}")
+    
+    for camera_id in range(MAX_CAMERAS):
+        manager = CameraManager(camera_id)
+        camera_managers[camera_id] = manager
+        try:
+            manager.start()
+        except Exception as e:
+            camera_logger.error(f"Erro ao iniciar câmera {camera_id}: {e}")
+    
+    yield
+    
+    # Shutdown: Parar todas as câmeras
+    camera_logger.info("Parando todas as câmeras...")
+    for manager in camera_managers.values():
+        manager.stop()
+
+app = FastAPI(title="Remote Control Tester Backend", lifespan=lifespan)
+
+# CONFIGURAÇÃO CORS - DEVE VIR ANTES DE TODAS AS ROTAS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000", "http://127.0.0.1:3000"],
@@ -24,13 +220,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
-from enum import Enum
-
 
 @app.get("/status")
 async def status():
@@ -1417,6 +1606,52 @@ async def reset_sequence():
     await emergency_stop()
     return {"status": "success", "message": "Sequência reiniciada"}
 
+@app.post("/start_complete_process")
+async def start_complete_process():
+    """Inicia o processo completo FingerDown + Início1"""
+    try:
+        result = await fingerdown()
+        return {"status": "success", "message": "Processo completo iniciado", "data": result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/stop_process")
+async def stop_process():
+    """Para o processo em execução"""
+    global libera_envio_comandos, process_running, fingerdown_running
+    try:
+        libera_envio_comandos = False
+        process_running = False
+        fingerdown_running = False
+        await emergency_stop()
+        return {"status": "success", "message": "Processo parado"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/reset_system")
+async def reset_system():
+    """Reseta o sistema"""
+    global linha_atual, libera_envio_comandos, process_running, fingerdown_running, current_test_cycle
+    try:
+        linha_atual = 0
+        libera_envio_comandos = False
+        process_running = False
+        fingerdown_running = False
+        current_test_cycle = 0
+        await emergency_stop()
+        return {"status": "success", "message": "Sistema resetado"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/test_ir_sequence")
+async def test_ir_sequence():
+    """Testa a sequência IR"""
+    try:
+        result = await testar_captura_ir()
+        return {"status": "success", "message": "Teste IR iniciado", "data": result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 # Mantém a escuta IR
 async def listen_ir_data():
     """Escuta dados da porta IR (Nano)"""
@@ -1502,6 +1737,35 @@ async def connect_serial_port(port_number: int, port_name: str):
         print(f"Erro ao conectar porta {port_number}: {e}")
         return {"status": "error", "message": str(e)}
 
+@app.get("/disconnect_port/{port_number}")
+async def disconnect_serial_port(port_number: int):
+    """Desconecta uma porta serial"""
+    global serial_port1, serial_port2, serial_port3
+    
+    try:
+        print(f"Desconectando porta {port_number}")
+        
+        if port_number == 1:
+            if serial_port1 and serial_port1.is_open:
+                serial_port1.close()
+                serial_port1 = None
+            return {"status": "success", "message": "Porta 1 desconectada"}
+        elif port_number == 2:
+            if serial_port2 and serial_port2.is_open:
+                serial_port2.close()
+                serial_port2 = None
+            return {"status": "success", "message": "Porta 2 desconectada"}
+        elif port_number == 3:
+            if serial_port3 and serial_port3.is_open:
+                serial_port3.close()
+                serial_port3 = None
+            return {"status": "success", "message": "Porta 3 desconectada"}
+        else:
+            return {"status": "error", "message": "Número de porta inválido"}
+    except Exception as e:
+        print(f"Erro ao desconectar porta {port_number}: {e}")
+        return {"status": "error", "message": str(e)}
+
 @app.post("/send_home/{port_number}")
 async def send_home_command(port_number: int):
     """Envia comando $H (Home)"""
@@ -1528,6 +1792,73 @@ async def send_home_command(port_number: int):
     except Exception as e:
         print(f"Erro ao enviar comando Home: {e}")
         return {"status": "error", "message": str(e)}
+
+# =========================
+# ENDPOINTS DE CÂMERAS
+# =========================
+
+@app.get("/stream/{camera_id}")
+async def stream_camera(camera_id: int):
+    """Stream de vídeo de uma câmera específica"""
+    if camera_id < 0 or camera_id >= MAX_CAMERAS:
+        raise HTTPException(status_code=404, detail=f"Câmera {camera_id} não existe")
+    
+    manager = camera_managers.get(camera_id)
+    if manager is None:
+        raise HTTPException(status_code=404, detail=f"Gerenciador de câmera {camera_id} não encontrado")
+    
+    return StreamingResponse(
+        generate_frame(camera_id),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
+
+@app.get("/camera_status")
+async def get_camera_status():
+    """Status de todas as câmeras"""
+    status = {}
+    for camera_id, manager in camera_managers.items():
+        status[camera_id] = {
+            "connected": manager.is_connected(),
+            "running": manager.is_running,
+            "has_frame": manager.get_frame() is not None,
+            "reconnect_attempts": manager.reconnect_attempts
+        }
+    return status
+
+@app.get("/camera_status/{camera_id}")
+async def get_single_camera_status(camera_id: int):
+    """Status de uma câmera específica"""
+    if camera_id < 0 or camera_id >= MAX_CAMERAS:
+        raise HTTPException(status_code=404, detail=f"Câmera {camera_id} não existe")
+    
+    manager = camera_managers.get(camera_id)
+    if manager is None:
+        raise HTTPException(status_code=404, detail=f"Gerenciador de câmera {camera_id} não encontrado")
+    
+    return {
+        "camera_id": camera_id,
+        "connected": manager.is_connected(),
+        "running": manager.is_running,
+        "has_frame": manager.get_frame() is not None,
+        "reconnect_attempts": manager.reconnect_attempts
+    }
+
+@app.post("/reconnect_camera/{camera_id}")
+async def reconnect_camera(camera_id: int):
+    """Força reconexão de uma câmera"""
+    if camera_id < 0 or camera_id >= MAX_CAMERAS:
+        raise HTTPException(status_code=404, detail=f"Câmera {camera_id} não existe")
+    
+    manager = camera_managers.get(camera_id)
+    if manager is None:
+        raise HTTPException(status_code=404, detail=f"Gerenciador de câmera {camera_id} não encontrado")
+    
+    # Parar e reiniciar
+    manager.stop()
+    await asyncio.sleep(1)
+    manager.start()
+    
+    return {"message": f"Câmera {camera_id} reconectada", "connected": manager.is_connected()}
 
 # Endpoint para listar todas as rotas
 @app.get("/routes")
