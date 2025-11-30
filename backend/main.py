@@ -203,12 +203,24 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             camera_logger.error(f"Erro ao iniciar câmera {camera_id}: {e}")
     
+    # Inicia escuta de comando START via pneumática
+    pneumatic_task = asyncio.create_task(listen_pneumatic_start())
+    print("✅ Escuta pneumática iniciada")
+    
     yield
     
     # Shutdown: Parar todas as câmeras
     camera_logger.info("Parando todas as câmeras...")
     for manager in camera_managers.values():
         manager.stop()
+    
+    # Cancela task pneumática
+    pneumatic_task.cancel()
+    try:
+        await pneumatic_task
+    except asyncio.CancelledError:
+        pass
+    print("✅ Escuta pneumática parada")
 
 app = FastAPI(title="Remote Control Tester Backend", lifespan=lifespan)
 
@@ -282,6 +294,7 @@ def get_machine_state() -> MachineState:
 serial_port1 = None  # Porta para comandos K/P (Arduino/Relés)
 serial_port2 = None  # Porta para comandos G-code (GRBL)
 serial_port3 = None  # Porta para receber dados IR (Nano)
+serial_port4 = None  # Porta adicional
 
 # Variáveis de controle
 process_running = False
@@ -291,6 +304,8 @@ libera_envio_comandos = False
 # Variáveis específicas do FingerDown
 fingerdown_running = False
 current_test_cycle = 0
+last_test_report = None  # Armazena o último relatório de validação
+last_pneumatic_message = None  # Armazena a última mensagem recebida via pneumática
 
 
 
@@ -1030,7 +1045,8 @@ async def send_command_endpoint(port_number: int, request: Request):
         
         # Processa comandos especiais
         if command == 'START_CALIBRATION':
-            return await start_calibration_sequence(port_number)
+            # Calibração sempre envia $H para porta 2 (GRBL)
+            return await send_home_command(2)
         elif command == 'START':
             return await start_test_sequence(port_number)
         elif command == 'FINGER_DOWN':
@@ -1045,7 +1061,7 @@ async def send_command_endpoint(port_number: int, request: Request):
 
 async def send_raw_command(port_number: int, command: str):
     """Envia comando direto para porta serial"""
-    global serial_port1, serial_port2, serial_port3
+    global serial_port1, serial_port2, serial_port3, serial_port4
     
     try:
         port = None
@@ -1055,6 +1071,8 @@ async def send_raw_command(port_number: int, command: str):
             port = serial_port2
         elif port_number == 3:
             port = serial_port3
+        elif port_number == 4:
+            port = serial_port4
         else:
             return {"status": "error", "message": f"Porta {port_number} inválida"}
         
@@ -1207,6 +1225,544 @@ async def executar_sequencia_comandos():
     except Exception as e:
         print(f"❌ Erro na sequência de comandos: {e}")
         await emergency_stop()
+
+# =========================
+# SISTEMA DE COMPARAÇÃO DE IMAGENS
+# =========================
+
+def processar_imagem(img_path: str) -> np.ndarray:
+    """Processa imagem: carrega, redimensiona, converte para escala de cinza e normaliza"""
+    try:
+        img = cv2.imread(str(img_path))
+        if img is None:
+            raise ValueError(f"Não foi possível carregar imagem: {img_path}")
+        
+        # Redimensiona para tamanho padrão (640x480)
+        img = cv2.resize(img, (640, 480))
+        
+        # Converte para escala de cinza
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Aplica blur para reduzir ruído
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Normaliza
+        gray = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
+        
+        return gray
+    except Exception as e:
+        print(f"❌ Erro ao processar imagem {img_path}: {e}")
+        return None
+
+def calcular_similaridade_template_matching(img1: np.ndarray, img2: np.ndarray) -> float:
+    """Calcula similaridade usando template matching"""
+    try:
+        if img1 is None or img2 is None:
+            return 0.0
+        
+        # Garante que as imagens têm o mesmo tamanho
+        if img1.shape != img2.shape:
+            img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
+        
+        # Template matching
+        result = cv2.matchTemplate(img1, img2, cv2.TM_CCOEFF_NORMED)
+        similarity = float(result[0][0])
+        return max(0.0, similarity)  # Garante que não seja negativo
+    except Exception as e:
+        print(f"❌ Erro ao calcular template matching: {e}")
+        return 0.0
+
+def calcular_similaridade_histograma(img1: np.ndarray, img2: np.ndarray) -> float:
+    """Calcula similaridade usando histograma"""
+    try:
+        if img1 is None or img2 is None:
+            return 0.0
+        
+        # Garante que as imagens têm o mesmo tamanho
+        if img1.shape != img2.shape:
+            img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
+        
+        # Calcula histogramas
+        hist1 = cv2.calcHist([img1], [0], None, [256], [0, 256])
+        hist2 = cv2.calcHist([img2], [0], None, [256], [0, 256])
+        
+        # Normaliza histogramas
+        hist1 = cv2.normalize(hist1, hist1).flatten()
+        hist2 = cv2.normalize(hist2, hist2).flatten()
+        
+        # Calcula correlação
+        correlation = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
+        return float(correlation)
+    except Exception as e:
+        print(f"❌ Erro ao calcular similaridade de histograma: {e}")
+        return 0.0
+
+def encontrar_imagem_referencia(botao_numero: int, nome_botao: str, camera_id: int, referencia_dir: Path) -> Optional[Path]:
+    """Encontra imagem de referência correspondente"""
+    try:
+        nome_botao_clean = nome_botao.replace(' ', '_').replace('-', '_').upper()
+        
+        # Padrões de busca
+        patterns = [
+            f"botao_{botao_numero:03d}_{nome_botao_clean}_camera_{camera_id}_*.jpg",
+            f"botao_{botao_numero:03d}_*_{nome_botao_clean}_*_camera_{camera_id}_*.jpg",
+            f"*{nome_botao_clean}*camera_{camera_id}*.jpg",
+            f"*botao_{botao_numero:03d}*camera_{camera_id}*.jpg"
+        ]
+        
+        for pattern in patterns:
+            matches = list(referencia_dir.glob(pattern))
+            if matches:
+                # Retorna a mais recente se houver múltiplas
+                return max(matches, key=lambda p: p.stat().st_mtime)
+        
+        return None
+    except Exception as e:
+        print(f"❌ Erro ao buscar imagem de referência: {e}")
+        return None
+
+def comparar_imagem_com_referencia(imagem_teste_path: str, imagem_ref_path: str, threshold: float = 0.75) -> Dict[str, Any]:
+    """Compara imagem de teste com imagem de referência"""
+    try:
+        # Processa ambas as imagens
+        img_teste = processar_imagem(imagem_teste_path)
+        img_ref = processar_imagem(imagem_ref_path)
+        
+        if img_teste is None or img_ref is None:
+            return {
+                "aprovado": False,
+                "similaridade_template": 0.0,
+                "similaridade_hist": 0.0,
+                "similaridade_media": 0.0,
+                "erro": "Erro ao processar imagens"
+            }
+        
+        # Calcula similaridades
+        template_score = calcular_similaridade_template_matching(img_teste, img_ref)
+        hist_score = calcular_similaridade_histograma(img_teste, img_ref)
+        
+        # Média ponderada (template matching tem mais peso)
+        similaridade_media = (template_score * 0.7) + (hist_score * 0.3)
+        
+        # Determina aprovação
+        aprovado = similaridade_media >= threshold
+        
+        return {
+            "aprovado": aprovado,
+            "similaridade_template": round(template_score, 4),
+            "similaridade_hist": round(hist_score, 4),
+            "similaridade_media": round(similaridade_media, 4),
+            "threshold": threshold
+        }
+    except Exception as e:
+        print(f"❌ Erro ao comparar imagens: {e}")
+        return {
+            "aprovado": False,
+            "similaridade_template": 0.0,
+            "similaridade_hist": 0.0,
+            "similaridade_media": 0.0,
+            "erro": str(e)
+        }
+
+# Mapeamento de botões para controles (baseado no RemoteControlContainer)
+MAPEAMENTO_CONTROLES = {
+    1: {  # Controle 1
+        "botoes": ["POWER", "FUNCAO", "TEMP_MAX", "TEMPORIZADOR", "TEMP_DOWN", "VELOCIDADE", 
+                   "OSCILAR", "TURBO", "CONFORTO", "IONAIR", "VISOR", "DORMIR", "POWER_FINAL", "LIMPAR", "ANTIMORFO"]
+    },
+    2: {  # Controle 2
+        "botoes": ["POWER", "FUNCAO", "TEMP_MAX", "TEMPORIZADOR", "TEMP_DOWN", "VELOCIDADE", 
+                   "OSCILAR", "TURBO", "CONFORTO", "IONAIR", "VISOR", "DORMIR", "POWER_FINAL", "LIMPAR", "ANTIMORFO"]
+    },
+    3: {  # Controle 3
+        "botoes": ["POWER", "FUNCAO", "TEMP_MAX", "TEMPORIZADOR", "TEMP_DOWN", "VELOCIDADE", 
+                   "OSCILAR", "TURBO", "CONFORTO", "IONAIR", "VISOR", "DORMIR", "POWER_FINAL", "LIMPAR", "ANTIMORFO"]
+    },
+    4: {  # Controle 4
+        "botoes": ["POWER", "FUNCAO", "TEMP_MAX", "TEMPORIZADOR", "TEMP_DOWN", "VELOCIDADE", 
+                   "OSCILAR", "TURBO", "CONFORTO", "IONAIR", "VISOR", "DORMIR", "POWER_FINAL", "LIMPAR", "ANTIMORFO"]
+    }
+}
+
+def obter_controle_do_botao(nome_botao: str) -> int:
+    """Retorna o número do controle baseado no nome do botão"""
+    # Por padrão, todos os botões são testados em todos os 4 controles
+    # Mas podemos mapear baseado na posição na sequência
+    # Por enquanto, retorna baseado no índice do botão na sequência
+    for i, coord in enumerate(test_coordinates):
+        if coord.get('nome') == nome_botao:
+            # Distribui os botões entre os 4 controles
+            return (i % 4) + 1
+    return 1  # Default
+
+def gerar_relatorio_controles(resultados_validacao: list) -> Dict[str, Any]:
+    """Gera relatório final de aprovação/reprovação por controle"""
+    # Agrupa resultados por controle
+    controles_resultados = {1: [], 2: [], 3: [], 4: []}
+    
+    for resultado in resultados_validacao:
+        controle_num = resultado.get('controle_numero', 1)
+        if controle_num in controles_resultados:
+            controles_resultados[controle_num].append(resultado)
+    
+    relatorio = {
+        "controles": {},
+        "resumo": {
+            "total_controles": 4,
+            "controles_aprovados": 0,
+            "controles_reprovados": 0
+        }
+    }
+    
+    for controle_num in range(1, 5):
+        resultados_controle = controles_resultados[controle_num]
+        
+        if not resultados_controle:
+            relatorio["controles"][controle_num] = {
+                "status": "sem_dados",
+                "aprovado": False,
+                "total_botoes": 0,
+                "botoes_aprovados": 0,
+                "botoes_reprovados": 0,
+                "taxa_aprovacao": 0.0,
+                "similaridade_media": 0.0,
+                "botoes": []
+            }
+            continue
+        
+        # Calcula estatísticas
+        total_botoes = len(resultados_controle)
+        botoes_aprovados = sum(1 for r in resultados_controle if r.get('validacao', {}).get('aprovado', False))
+        botoes_reprovados = total_botoes - botoes_aprovados
+        
+        # Calcula similaridade média
+        similaridades = [r.get('validacao', {}).get('similaridade_media', 0.0) for r in resultados_controle]
+        similaridade_media = sum(similaridades) / len(similaridades) if similaridades else 0.0
+        
+        # Controle é aprovado se pelo menos 80% dos botões foram aprovados
+        taxa_aprovacao = botoes_aprovados / total_botoes if total_botoes > 0 else 0.0
+        controle_aprovado = taxa_aprovacao >= 0.8 and similaridade_media >= 0.70
+        
+        relatorio["controles"][controle_num] = {
+            "status": "aprovado" if controle_aprovado else "reprovado",
+            "aprovado": controle_aprovado,
+            "total_botoes": total_botoes,
+            "botoes_aprovados": botoes_aprovados,
+            "botoes_reprovados": botoes_reprovados,
+            "taxa_aprovacao": round(taxa_aprovacao * 100, 2),
+            "similaridade_media": round(similaridade_media, 4),
+            "botoes": [
+                {
+                    "nome": r.get('nome_botao'),
+                    "aprovado": r.get('validacao', {}).get('aprovado', False),
+                    "similaridade": r.get('validacao', {}).get('similaridade_media', 0.0)
+                }
+                for r in resultados_controle
+            ]
+        }
+        
+        if controle_aprovado:
+            relatorio["resumo"]["controles_aprovados"] += 1
+        else:
+            relatorio["resumo"]["controles_reprovados"] += 1
+    
+    return relatorio
+
+def limpar_imagens_teste():
+    """Limpa as imagens capturadas durante os testes anteriores (NÃO as imagens de referência)"""
+    try:
+        resultados_dir = Path("test_results")
+        if not resultados_dir.exists():
+            return
+        
+        deleted_count = 0
+        
+        # Lista todos os diretórios de ciclos anteriores
+        for ciclo_dir in resultados_dir.glob("ciclo_*"):
+            if ciclo_dir.is_dir():
+                # Limpa todas as fotos dentro do diretório fotos/ do ciclo
+                fotos_dir = ciclo_dir / "fotos"
+                if fotos_dir.exists():
+                    for img_file in fotos_dir.glob("*.jpg"):
+                        try:
+                            img_file.unlink()
+                            deleted_count += 1
+                        except Exception as e:
+                            print(f"⚠️ Erro ao deletar {img_file.name}: {e}")
+                
+                # Opcional: Remove o diretório do ciclo se estiver vazio
+                # (mas mantém o JSON do resultado)
+                try:
+                    if fotos_dir.exists() and not any(fotos_dir.iterdir()):
+                        fotos_dir.rmdir()
+                except:
+                    pass
+        
+        if deleted_count > 0:
+            print(f"🗑️ {deleted_count} imagem(ns) de teste deletada(s) dos ciclos anteriores")
+        else:
+            print("🗑️ Nenhuma imagem de teste anterior encontrada para deletar")
+            
+        # IMPORTANTE: NUNCA deleta nada da pasta camera_photos_modelo1
+        # Essa pasta contém as imagens de REFERÊNCIA que devem ser preservadas!
+        
+    except Exception as e:
+        print(f"⚠️ Erro ao limpar imagens de teste: {e}")
+
+async def executar_sequencia_comandos_com_fotos():
+    """Executa a sequência completa COM CAPTURA DE FOTOS de todas as câmeras a cada botão pressionado"""
+    global linha_atual, libera_envio_comandos, current_test_cycle, last_pneumatic_message, last_test_report
+    
+    # Lista para armazenar TODOS os dados IR capturados
+    todos_dados_ir = []
+    
+    # Diretório para salvar fotos de teste (temporário, será movido depois)
+    photos_dir = Path("camera_photos_modelo1")
+    photos_dir.mkdir(exist_ok=True)
+    
+    # Diretório para resultados dos testes
+    resultados_dir = Path("test_results")
+    resultados_dir.mkdir(exist_ok=True)
+    
+    # Cria subdiretório para este ciclo de teste
+    ciclo_dir = resultados_dir / f"ciclo_{current_test_cycle}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    ciclo_dir.mkdir(exist_ok=True)
+    ciclo_fotos_dir = ciclo_dir / "fotos"
+    ciclo_fotos_dir.mkdir(exist_ok=True)
+    
+    print(f"📁 Diretório de resultados criado: {ciclo_dir}")
+    
+    try:
+        print(f"🎯 INICIANDO SEQUÊNCIA COM FOTOS - {len(test_coordinates)} COMANDOS")
+        print("📸 Modo: Captura fotos de todas as câmeras a cada botão pressionado")
+        print("🔘 PRESSIONAMENTO DE BOTÕES + FOTOS!")
+        
+        for i, coord in enumerate(test_coordinates):
+            if not libera_envio_comandos:
+                print("⏸️ Sequência interrompida")
+                break
+                
+            linha_atual = i
+            nome_botao = coord.get('nome', f'Botão {i+1}')
+            print(f"🔹 Comando {i+1}/{len(test_coordinates)} - {nome_botao}")
+            
+            # 1. Move para posição
+            command = f"{coord['command']} X{coord['x']} Y{coord['y']}"
+            await enviar_comando_porta(2, command, f"Movimento {i+1}", timeout=1.5)
+            
+            # 2. PRESSIONA O BOTÃO
+            print(f"🔘 [{i+1}] Pressionando botão {nome_botao}...")
+            await enviar_comando_porta(1, "P_1", f"Pressionar {nome_botao}", timeout=0.3)
+            await asyncio.sleep(0.2)  # Pequena pausa para estabilização
+            
+            # 3. 📸 CAPTURA FOTOS DE TODAS AS CÂMERAS E COMPARA COM REFERÊNCIA
+            print(f"📸 [{i+1}] Capturando fotos de todas as câmeras...")
+            fotos_capturadas = []
+            validacoes_fotos = []
+            # Normaliza nome do botão para o nome do arquivo
+            nome_botao_arquivo = nome_botao.replace(' ', '_').replace('-', '_').upper()
+            
+            # Diretório de referência
+            referencia_dir = Path("camera_photos_modelo1")
+            
+            for camera_id in range(MAX_CAMERAS):
+                try:
+                    manager = camera_managers.get(camera_id)
+                    if manager and manager.is_connected():
+                        frame = manager.get_frame()
+                        if frame is not None:
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                            filename = f"botao_{i+1:03d}_{nome_botao_arquivo}_camera_{camera_id}_{timestamp}.jpg"
+                            # Salva na pasta de fotos do ciclo
+                            filepath = ciclo_fotos_dir / filename
+                            cv2.imwrite(str(filepath), frame)
+                            
+                            # 🔍 COMPARA COM IMAGEM DE REFERÊNCIA
+                            img_ref_path = encontrar_imagem_referencia(i + 1, nome_botao, camera_id, referencia_dir)
+                            
+                            validacao = {
+                                "camera_id": camera_id,
+                                "aprovado": False,
+                                "similaridade_media": 0.0,
+                                "imagem_referencia_encontrada": False
+                            }
+                            
+                            if img_ref_path and img_ref_path.exists():
+                                resultado_comparacao = comparar_imagem_com_referencia(str(filepath), str(img_ref_path))
+                                validacao.update(resultado_comparacao)
+                                validacao["imagem_referencia_encontrada"] = True
+                                validacao["imagem_referencia"] = str(img_ref_path)
+                                
+                                status = "✅ APROVADO" if resultado_comparacao["aprovado"] else "❌ REPROVADO"
+                                print(f"  {status} Câmera {camera_id}: Similaridade {resultado_comparacao['similaridade_media']:.2%}")
+                            else:
+                                print(f"  ⚠️ Câmera {camera_id}: Imagem de referência não encontrada")
+                                validacao["erro"] = "Imagem de referência não encontrada"
+                            
+                            fotos_capturadas.append({
+                                "camera_id": camera_id,
+                                "filename": filename,
+                                "filepath": str(filepath)
+                            })
+                            validacoes_fotos.append(validacao)
+                            print(f"  ✅ Foto câmera {camera_id} salva: {filename}")
+                        else:
+                            print(f"  ⚠️ Câmera {camera_id} sem frame disponível")
+                    else:
+                        print(f"  ⚠️ Câmera {camera_id} não conectada")
+                except Exception as e:
+                    print(f"  ❌ Erro ao capturar foto da câmera {camera_id}: {e}")
+            
+            # 4. Libera o botão
+            await enviar_comando_porta(1, "P_0", f"Liberar {nome_botao}", timeout=0.3)
+            
+            # 5. Captura dados IR APÓS pressionar o botão (opcional - não bloqueia o teste)
+            print(f"📡 [{i+1}] Capturando dados IR após pressionar {nome_botao}...")
+            resultado_ir = await capturar_dados_ir(
+                nano='nano1',
+                timeout=8000,
+                salvar_captura=False
+            )
+            
+            # Calcula validação geral do botão (aprovado se todas as câmeras aprovarem)
+            todas_aprovadas = all(v.get('aprovado', False) for v in validacoes_fotos if v.get('imagem_referencia_encontrada'))
+            similaridade_media_botao = sum(v.get('similaridade_media', 0.0) for v in validacoes_fotos) / len(validacoes_fotos) if validacoes_fotos else 0.0
+            
+            # SEMPRE adiciona os dados, mesmo se a captura IR falhar
+            # (o teste de imagem é o principal, o IR é complementar)
+            dados_botao = {
+                "botao_numero": i + 1,
+                "coordenadas": coord,
+                "timestamp": resultado_ir.get('timestamp') if resultado_ir.get('success') else datetime.now().isoformat(),
+                "request_id": resultado_ir.get('request_id') if resultado_ir.get('success') else None,
+                "dados_ir": resultado_ir.get('data') if resultado_ir.get('success') else None,
+                "ir_capturado": resultado_ir.get('success', False),
+                "ir_erro": resultado_ir.get('error') if not resultado_ir.get('success') else None,
+                "nome_botao": nome_botao,
+                "comando_executado": f"Pressionar {nome_botao} em X{coord['x']} Y{coord['y']}",
+                "fotos_capturadas": fotos_capturadas,
+                "validacao": {
+                    "aprovado": todas_aprovadas,
+                    "similaridade_media": round(similaridade_media_botao, 4),
+                    "validacoes_por_camera": validacoes_fotos
+                },
+                "controle_numero": obter_controle_do_botao(nome_botao)
+            }
+            todos_dados_ir.append(dados_botao)
+            
+            if resultado_ir.get('success'):
+                print(f"✅ [{i+1}] Botão pressionado, {len(fotos_capturadas)} fotos e dados IR capturados")
+            else:
+                print(f"⚠️ [{i+1}] Botão pressionado, {len(fotos_capturadas)} fotos capturadas (IR não capturado: {resultado_ir.get('error', 'Erro desconhecido')})")
+            
+            print(f"   📊 Validação: {'✅ APROVADO' if todas_aprovadas else '❌ REPROVADO'} (Similaridade média: {similaridade_media_botao:.2%})")
+            
+            # 6. Pequena pausa entre comandos
+            if i < len(test_coordinates) - 1:
+                await asyncio.sleep(1.0)
+        
+        print("✅ SEQUÊNCIA COM FOTOS CONCLUÍDA")
+        print(f"📊 Total de botões pressionados: {len(todos_dados_ir)}")
+        
+        # 7. GERA RELATÓRIO DE VALIDAÇÃO POR CONTROLE
+        resultados_validacao = [
+            {
+                "controle_numero": d.get('controle_numero', 1),
+                "nome_botao": d.get('nome_botao'),
+                "botao_numero": d.get('botao_numero'),
+                "validacao": d.get('validacao', {})
+            }
+            for d in todos_dados_ir if d.get('validacao')
+        ]
+        
+        relatorio_controles = gerar_relatorio_controles(resultados_validacao)
+        
+        # 8. IMPRIME RELATÓRIO FINAL
+        print("\n" + "="*60)
+        print("📋 RELATÓRIO FINAL DE VALIDAÇÃO POR CONTROLE")
+        print("="*60)
+        for controle_num in range(1, 5):
+            info = relatorio_controles["controles"][controle_num]
+            status_emoji = "✅" if info["aprovado"] else "❌"
+            print(f"\n{status_emoji} CONTROLE {controle_num}: {info['status'].upper()}")
+            print(f"   Total de botões: {info['total_botoes']}")
+            print(f"   Botões aprovados: {info['botoes_aprovados']}")
+            print(f"   Botões reprovados: {info['botoes_reprovados']}")
+            print(f"   Taxa de aprovação: {info['taxa_aprovacao']}%")
+            print(f"   Similaridade média: {info['similaridade_media']:.2%}")
+        
+        print(f"\n📊 RESUMO GERAL:")
+        print(f"   Controles aprovados: {relatorio_controles['resumo']['controles_aprovados']}/4")
+        print(f"   Controles reprovados: {relatorio_controles['resumo']['controles_reprovados']}/4")
+        print("="*60 + "\n")
+        
+        # 9. SALVA RESULTADOS NO DIRETÓRIO DO CICLO
+        if todos_dados_ir:
+            # Salva JSON consolidado no diretório do ciclo
+            json_path = ciclo_dir / f"resultado_teste_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            dados_consolidados = {
+                "metadata": {
+                    "arquivo_salvo_em": datetime.now().isoformat(),
+                    "ciclo_teste": current_test_cycle,
+                    "total_botoes_mapeados": len(todos_dados_ir),
+                    "sequencia_executada": "FingerDown + Início1",
+                    "timestamp_inicio": todos_dados_ir[0]['timestamp'] if todos_dados_ir else None,
+                    "timestamp_fim": datetime.now().isoformat(),
+                    "diretorio_fotos": str(ciclo_fotos_dir)
+                },
+                "botoes_mapeados": todos_dados_ir,
+                "relatorio_controles": relatorio_controles
+            }
+            
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(dados_consolidados, f, indent=2, ensure_ascii=False)
+            
+            # Armazena o relatório globalmente para acesso via API
+            last_test_report = relatorio_controles
+            
+            print(f"💾 RESULTADO SALVO: {json_path}")
+            print(f"📁 Fotos salvas em: {ciclo_fotos_dir}")
+            print(f"📊 Total de botões mapeados: {len(todos_dados_ir)}")
+        else:
+            print("⚠️ Nenhum dado IR foi capturado")
+        
+        # 10. FINALIZA O PROCESSO
+        await finalizar_processo()
+        
+        # Atualiza mensagem para a dashboard
+        last_pneumatic_message = "✅ Teste concluído com sucesso!"
+    
+    except Exception as e:
+        print(f"❌ Erro na sequência de comandos com fotos: {e}")
+        await emergency_stop()
+        
+        # Atualiza mensagem de erro
+        last_pneumatic_message = f"❌ Erro no teste: {str(e)}"
+
+async def inicio1_com_fotos():
+    """Início do teste real COM FOTOS - sequência de comandos otimizada"""
+    global linha_atual, libera_envio_comandos
+    
+    try:
+        print("=== INICIANDO INÍCIO1 COM FOTOS (TESTE REAL) ===")
+        
+        # Reset de estado
+        libera_envio_comandos = True
+        linha_atual = 0
+        
+        # Envia comando para iniciar IR
+        await enviar_comando_porta(1, "B1_1", "Iniciar IR", timeout=0.5)
+        await enviar_comando_porta(1, "B1_1", "Iniciar IR - 2º", timeout=2.5)
+        
+        # Inicia sequência de comandos COM FOTOS
+        asyncio.create_task(executar_sequencia_comandos_com_fotos())
+        
+        return {"status": "success", "message": "Início1 com fotos executado"}
+        
+    except Exception as e:
+        print(f"❌ Erro no Início1 com fotos: {e}")
+        await emergency_stop()
+        return {"status": "error", "message": str(e)}
 
 async def capturar_dados_ir(nano: str = 'nano1', timeout: int = 10000, 
                            salvar_captura: bool = False) -> Dict[str, Any]:  # Mude para False por padrão
@@ -1376,7 +1932,7 @@ async def _salvar_log_resumo(dados: Dict[str, Any], nano: str) -> None:
     except Exception as e:
         print(f"⚠️ Erro ao salvar log: {e}")
 
-async def salvar_json_consolidado(dados_ir: list):
+async def salvar_json_consolidado(dados_ir: list, relatorio_controles: Optional[Dict] = None):
     """Salva TODOS os dados IR em um único arquivo JSON consolidado"""
     try:
         # Cria diretório se não existir
@@ -1397,7 +1953,8 @@ async def salvar_json_consolidado(dados_ir: list):
                 "timestamp_inicio": dados_ir[0]['timestamp'] if dados_ir else None,
                 "timestamp_fim": datetime.now().isoformat()
             },
-            "botoes_mapeados": dados_ir
+            "botoes_mapeados": dados_ir,
+            "relatorio_controles": relatorio_controles or {}
         }
         
         # Salva o arquivo
@@ -1615,6 +2172,96 @@ async def start_complete_process():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+async def execute_start_with_photos():
+    """Função interna para executar o processo completo com fotos"""
+    global fingerdown_running, current_test_cycle
+    
+    if fingerdown_running:
+        print("⚠️ Teste já em execução, ignorando comando START")
+        return {"status": "error", "message": "FingerDown já em execução"}
+    
+    try:
+        fingerdown_running = True
+        current_test_cycle += 1
+        
+        # 🗑️ LIMPA IMAGENS DE TESTE DO CICLO ANTERIOR
+        print("🗑️ Limpando imagens de teste do ciclo anterior...")
+        limpar_imagens_teste()
+        
+        print("=== INICIANDO FINGERDOWN COM FOTOS ===")
+        print(f"📦 Ciclo de teste: {current_test_cycle}")
+        
+        # Verificar portas conectadas
+        port1_connected = serial_port1 and serial_port1.is_open
+        port2_connected = serial_port2 and serial_port2.is_open
+        
+        print(f"🔌 Porta 1 conectada: {port1_connected}")
+        print(f"🔌 Porta 2 conectada: {port2_connected}")
+        
+        if not port1_connected or not port2_connected:
+            raise Exception("Portas necessárias não conectadas")
+        
+        # VERIFICAÇÃO INICIAL DE ESTADO
+        await verificar_estado_inicial()
+        
+        # SEQUÊNCIA FINGERDOWN OTIMIZADA
+        # 1. Avançar (Porta 1)
+        await enviar_comando_porta(1, "K2_1", "Avançar", timeout=3.0)
+        
+        # 2. Mover na posição (Porta 2) - COM VERIFICAÇÃO
+        await enviar_comando_porta(2, "G90 X29.787 Y82.987", "Mover para posição inicial", timeout=4.0)
+        
+        # 3. Pressionar (Porta 1)
+        await enviar_comando_porta(1, "P_1", "Pressionar", timeout=1.5)
+        
+        # 4. Travar (Porta 1)
+        await enviar_comando_porta(1, "K4_1", "Travar", timeout=1.0)
+        
+        # 5. Expandir a pilha (Porta 1) - COM CONTROLE
+        await enviar_comando_porta(1, "K7_1", "Expandir pilha - 1º", timeout=0.8)
+        await asyncio.sleep(0.2)  # Pequena pausa entre expansões
+        await enviar_comando_porta(1, "K7_1", "Expandir pilha - 2º", timeout=0.8)
+        
+        # 6. Tirar o pressionamento (Porta 1)
+        await enviar_comando_porta(1, "P_0", "Liberar pressão", timeout=1.0)
+        
+        print("✅ FINGERDOWN COM FOTOS CONCLUÍDO")
+
+        # Inicia sequência principal COM FOTOS
+        await inicio1_com_fotos()
+
+        return {
+            "status": "success", 
+            "message": "FingerDown com fotos executado com sucesso",
+            "cycle": current_test_cycle,
+            "timestamp": datetime.now().isoformat(),
+            "port1_connected": port1_connected,
+            "port2_connected": port2_connected
+        }
+        
+    except Exception as e:
+        error_msg = f"❌ Erro crítico no FingerDown com fotos: {str(e)}"
+        print(error_msg)
+        await emergency_stop()
+        return {"status": "error", "message": error_msg}
+    finally:
+        fingerdown_running = False
+
+@app.post("/start_complete_process_with_photos")
+async def start_complete_process_with_photos():
+    """Inicia o processo completo FingerDown + Início1 COM CAPTURA DE FOTOS a cada botão pressionado"""
+    print("🎯 ENDPOINT /start_complete_process_with_photos ACESSADO!")
+    
+    if fingerdown_running:
+        raise HTTPException(status_code=400, detail="FingerDown já em execução")
+    
+    result = await execute_start_with_photos()
+    
+    if result.get("status") == "error":
+        raise HTTPException(status_code=500, detail=result.get("message", "Erro desconhecido"))
+    
+    return result
+
 @app.post("/stop_process")
 async def stop_process():
     """Para o processo em execução"""
@@ -1666,6 +2313,90 @@ async def listen_ir_data():
     except Exception as e:
         print(f"Erro na escuta IR: {e}")
 
+# Escuta comando START via pneumática (Porta 1)
+async def listen_pneumatic_start():
+    """Escuta comando START via pneumática na Porta 1"""
+    global fingerdown_running, serial_port1, serial_port2, last_pneumatic_message
+    
+    print("🔌 Iniciando escuta de comando START via pneumática (Porta 1)...")
+    
+    while True:
+        try:
+            # Verifica se as portas 1 e 2 estão conectadas
+            port1_connected = serial_port1 and serial_port1.is_open
+            port2_connected = serial_port2 and serial_port2.is_open
+            
+            if port1_connected and port2_connected:
+                # Verifica se há dados na porta 1
+                if serial_port1.in_waiting > 0:
+                    # Lê o comando
+                    data = serial_port1.readline().decode().strip()
+                    
+                    if data:
+                        print(f"📥 DADO RECEBIDO DA PNEUMÁTICA: {data}")
+                        
+                        # Verifica se é o comando START (case-insensitive)
+                        if data.upper() == "START":
+                            print("🚀 COMANDO START RECEBIDO VIA PNEUMÁTICA!")
+                            
+                            # Atualiza mensagem para a dashboard
+                            last_pneumatic_message = "🚀 START recebido via pneumática! Iniciando teste..."
+                            
+                            # Verifica se já não está executando
+                            if not fingerdown_running:
+                                # Limpa o buffer completamente antes de processar
+                                try:
+                                    serial_port1.reset_input_buffer()  # Limpa buffer de entrada
+                                    serial_port1.reset_output_buffer()  # Limpa buffer de saída
+                                    # Garante que não há dados pendentes
+                                    while serial_port1.in_waiting > 0:
+                                        serial_port1.read(serial_port1.in_waiting)
+                                    print("🧹 Buffer da Porta 1 completamente limpo")
+                                except Exception as e:
+                                    print(f"⚠️ Erro ao limpar buffer: {e}")
+                                
+                                # Executa o teste com fotos
+                                print("🎯 Iniciando teste via pneumática...")
+                                try:
+                                    # Executa o teste diretamente
+                                    asyncio.create_task(execute_start_with_photos())
+                                except Exception as e:
+                                    print(f"❌ Erro ao iniciar teste via pneumática: {e}")
+                                    last_pneumatic_message = f"❌ Erro ao iniciar teste: {str(e)}"
+                            else:
+                                print("⚠️ Teste já em execução, ignorando comando START")
+                                last_pneumatic_message = "⚠️ Teste já em execução, comando START ignorado"
+                                # Limpa o buffer mesmo se o teste estiver rodando
+                                try:
+                                    serial_port1.reset_input_buffer()
+                                    while serial_port1.in_waiting > 0:
+                                        serial_port1.read(serial_port1.in_waiting)
+                                except:
+                                    pass
+                        else:
+                            print(f"📝 Comando recebido (não é START): {data}")
+                            last_pneumatic_message = f"📝 Comando recebido (não é START): {data}"
+                            
+                            # Limpa o buffer mesmo se não for START
+                            try:
+                                serial_port1.reset_input_buffer()
+                                while serial_port1.in_waiting > 0:
+                                    serial_port1.read(serial_port1.in_waiting)
+                            except:
+                                pass
+            else:
+                # Se as portas não estiverem conectadas, limpa a mensagem
+                if not port1_connected or not port2_connected:
+                    last_pneumatic_message = None
+            
+            # Aguarda um pouco antes de verificar novamente
+            await asyncio.sleep(0.1)
+            
+        except Exception as e:
+            print(f"❌ Erro na escuta pneumática: {e}")
+            last_pneumatic_message = f"❌ Erro na escuta pneumática: {str(e)}"
+            await asyncio.sleep(1.0)  # Aguarda mais tempo em caso de erro
+
 
 
 
@@ -1709,28 +2440,40 @@ async def get_serial_ports():
         }
 
 @app.get("/connect_port/{port_number}")
-async def connect_serial_port(port_number: int, port_name: str):
+async def connect_serial_port(port_number: int, port_name: str, baud_rate: int = None):
     """Conecta a uma porta serial"""
-    global serial_port1, serial_port2, serial_port3
+    global serial_port1, serial_port2, serial_port3, serial_port4
     
     try:
-        print(f"Tentando conectar porta {port_number}: {port_name}")
+        # Define baud rate padrão se não fornecido
+        if baud_rate is None:
+            if port_number == 3:
+                baud_rate = 9600
+            else:
+                baud_rate = 115200
+        
+        print(f"Tentando conectar porta {port_number}: {port_name} @ {baud_rate} baud")
         
         if port_number == 1:
             if serial_port1 and serial_port1.is_open:
                 serial_port1.close()
-            serial_port1 = serial.Serial(port_name, 115200, timeout=1)
-            return {"status": "success", "message": f"Porta 1 conectada: {port_name}"}
+            serial_port1 = serial.Serial(port_name, baud_rate, timeout=1)
+            return {"status": "success", "message": f"Porta 1 conectada: {port_name} @ {baud_rate} baud"}
         elif port_number == 2:
             if serial_port2 and serial_port2.is_open:
                 serial_port2.close()
-            serial_port2 = serial.Serial(port_name, 115200, timeout=1)
-            return {"status": "success", "message": f"Porta 2 conectada: {port_name}"}
+            serial_port2 = serial.Serial(port_name, baud_rate, timeout=1)
+            return {"status": "success", "message": f"Porta 2 conectada: {port_name} @ {baud_rate} baud"}
         elif port_number == 3:
             if serial_port3 and serial_port3.is_open:
                 serial_port3.close()
-            serial_port3 = serial.Serial(port_name, 9600, timeout=1)
-            return {"status": "success", "message": f"Porta 3 conectada: {port_name}"}
+            serial_port3 = serial.Serial(port_name, baud_rate, timeout=1)
+            return {"status": "success", "message": f"Porta 3 conectada: {port_name} @ {baud_rate} baud"}
+        elif port_number == 4:
+            if serial_port4 and serial_port4.is_open:
+                serial_port4.close()
+            serial_port4 = serial.Serial(port_name, baud_rate, timeout=1)
+            return {"status": "success", "message": f"Porta 4 conectada: {port_name} @ {baud_rate} baud"}
         else:
             return {"status": "error", "message": "Número de porta inválido"}
     except Exception as e:
@@ -1740,7 +2483,7 @@ async def connect_serial_port(port_number: int, port_name: str):
 @app.get("/disconnect_port/{port_number}")
 async def disconnect_serial_port(port_number: int):
     """Desconecta uma porta serial"""
-    global serial_port1, serial_port2, serial_port3
+    global serial_port1, serial_port2, serial_port3, serial_port4
     
     try:
         print(f"Desconectando porta {port_number}")
@@ -1760,6 +2503,11 @@ async def disconnect_serial_port(port_number: int):
                 serial_port3.close()
                 serial_port3 = None
             return {"status": "success", "message": "Porta 3 desconectada"}
+        elif port_number == 4:
+            if serial_port4 and serial_port4.is_open:
+                serial_port4.close()
+                serial_port4 = None
+            return {"status": "success", "message": "Porta 4 desconectada"}
         else:
             return {"status": "error", "message": "Número de porta inválido"}
     except Exception as e:
@@ -1860,7 +2608,101 @@ async def reconnect_camera(camera_id: int):
     
     return {"message": f"Câmera {camera_id} reconectada", "connected": manager.is_connected()}
 
+@app.get("/capture_frame/{camera_id}")
+async def capture_frame(camera_id: int):
+    """Captura um frame da câmera e retorna como imagem"""
+    from fastapi.responses import Response
+    
+    if camera_id < 0 or camera_id >= MAX_CAMERAS:
+        raise HTTPException(status_code=404, detail=f"Câmera {camera_id} não existe")
+    
+    manager = camera_managers.get(camera_id)
+    if manager is None:
+        raise HTTPException(status_code=404, detail=f"Gerenciador de câmera {camera_id} não encontrado")
+    
+    frame = manager.get_frame()
+    
+    if frame is None:
+        raise HTTPException(status_code=404, detail=f"Câmera {camera_id} não tem frame disponível")
+    
+    # Codificar frame como JPEG
+    ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    if not ret:
+        raise HTTPException(status_code=500, detail="Erro ao codificar frame")
+    
+    frame_bytes = buffer.tobytes()
+    
+    return Response(content=frame_bytes, media_type="image/jpeg")
+
+@app.post("/save_camera_frame/{camera_id}")
+async def save_camera_frame(camera_id: int, filename: Optional[str] = None):
+    """Captura e salva um frame da câmera no servidor"""
+    if camera_id < 0 or camera_id >= MAX_CAMERAS:
+        raise HTTPException(status_code=404, detail=f"Câmera {camera_id} não existe")
+    
+    manager = camera_managers.get(camera_id)
+    if manager is None:
+        raise HTTPException(status_code=404, detail=f"Gerenciador de câmera {camera_id} não encontrado")
+    
+    frame = manager.get_frame()
+    
+    if frame is None:
+        raise HTTPException(status_code=404, detail=f"Câmera {camera_id} não tem frame disponível")
+    
+    # Criar diretório de fotos se não existir
+    photos_dir = Path("camera_photos")
+    photos_dir.mkdir(exist_ok=True)
+    
+    # Nome do arquivo
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"camera_{camera_id}_{timestamp}.jpg"
+    
+    filepath = photos_dir / filename
+    
+    # Salvar frame
+    cv2.imwrite(str(filepath), frame)
+    
+    return {
+        "status": "success",
+        "message": f"Foto salva com sucesso",
+        "filename": filename,
+        "filepath": str(filepath),
+        "camera_id": camera_id
+    }
+
 # Endpoint para listar todas as rotas
+@app.get("/get_test_report")
+async def get_test_report():
+    """Retorna o último relatório de validação dos testes"""
+    global last_test_report
+    if last_test_report is None:
+        return {
+            "status": "no_data",
+            "message": "Nenhum teste foi executado ainda",
+            "relatorio": None
+        }
+    return {
+        "status": "success",
+        "relatorio": last_test_report
+    }
+
+@app.get("/get_pneumatic_message")
+async def get_pneumatic_message():
+    """Retorna a última mensagem recebida via pneumática"""
+    global last_pneumatic_message, serial_port1, serial_port2
+    
+    port1_connected = serial_port1 and serial_port1.is_open
+    port2_connected = serial_port2 and serial_port2.is_open
+    
+    return {
+        "status": "success",
+        "message": last_pneumatic_message,
+        "port1_connected": port1_connected,
+        "port2_connected": port2_connected,
+        "ready": port1_connected and port2_connected
+    }
+
 @app.get("/routes")
 async def list_routes():
     routes = []

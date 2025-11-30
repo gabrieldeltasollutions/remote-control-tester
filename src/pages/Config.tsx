@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RBSButton, RBSTextBox, RBSGroupBox, RBSSelect, RBSCircularBtn } from '@/components/RBSUi';
 import { Image as ImageIcon, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Camera, Video, Crop, Save, Upload } from 'lucide-react';
+import CameraConfigItem from '@/components/CameraConfigItem';
+import { apiService } from '@/services/api';
 
 // Componente de Grid Personalizado para o Fundo Azul Escuro
 const DarkBlueGrid = () => (
@@ -25,6 +27,290 @@ const Config = () => {
   const [tabLeft, setTabLeft] = useState<'Serial' | 'Controle'>('Controle');
   const [tabRight, setTabRight] = useState<'Serial' | 'Cameras'>('Cameras');
   const [tabBottom, setTabBottom] = useState<'Padrao' | 'Comparar' | 'Testar'>('Padrao');
+  
+  // Estados para portas seriais
+  const [serialPorts, setSerialPorts] = useState<any[]>([]);
+  const [portConfigs, setPortConfigs] = useState<{[key: number]: {port: string, baud: string, connected: boolean}}>({
+    1: { port: '', baud: '115200', connected: false },
+    2: { port: '', baud: '115200', connected: false },
+    3: { port: '', baud: '9600', connected: false },
+    4: { port: '', baud: '115200', connected: false },
+  });
+  
+  // Estados para comandos
+  const [commands, setCommands] = useState<{[key: number]: string}>({
+    1: '',
+    2: '',
+    3: '',
+    4: '',
+  });
+  
+  // Estados para coordenadas X/Y
+  const [positionX, setPositionX] = useState(0);
+  const [positionY, setPositionY] = useState(0);
+  const [steps, setSteps] = useState(1);
+  
+  // Estados para câmeras (posições e rotações)
+  const [cameraPositions, setCameraPositions] = useState<number[]>([0, 1, 2, 3]); // Mapeia displayNumber -> cameraId
+  const [cameraRotations, setCameraRotations] = useState<{[key: number]: number}>({
+    0: 0, 1: 0, 2: 0, 3: 0
+  });
+  
+  // Carregar configurações de câmeras salvas
+  useEffect(() => {
+    const savedPositions = localStorage.getItem('cameraPositions');
+    const savedRotations = localStorage.getItem('cameraRotations');
+    if (savedPositions) {
+      setCameraPositions(JSON.parse(savedPositions));
+    }
+    if (savedRotations) {
+      setCameraRotations(JSON.parse(savedRotations));
+    }
+  }, []);
+  
+  const handleCameraRotate = (cameraId: number, rotation: number) => {
+    setCameraRotations(prev => {
+      const newRotations = { ...prev, [cameraId]: rotation };
+      localStorage.setItem('cameraRotations', JSON.stringify(newRotations));
+      return newRotations;
+    });
+  };
+  
+  const handleCameraSwap = (fromDisplay: number, toDisplay: number) => {
+    setCameraPositions(prev => {
+      const newPositions = [...prev];
+      const temp = newPositions[fromDisplay];
+      newPositions[fromDisplay] = newPositions[toDisplay];
+      newPositions[toDisplay] = temp;
+      localStorage.setItem('cameraPositions', JSON.stringify(newPositions));
+      
+      // Disparar evento customizado para atualizar outras abas
+      window.dispatchEvent(new Event('cameraPositionsChanged'));
+      
+      return newPositions;
+    });
+  };
+  
+  const handleCameraCapture = (cameraId: number) => {
+    console.log(`Foto capturada da câmera ${cameraId}`);
+  };
+  
+  const captureAllCameras = async () => {
+    for (let i = 0; i < 4; i++) {
+      try {
+        await apiService.downloadCameraFrame(i, `camera_${i}_${new Date().getTime()}.jpg`);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Delay entre capturas
+      } catch (error) {
+        console.error(`Erro ao capturar câmera ${i}:`, error);
+      }
+    }
+  };
+  
+  // Carregar portas seriais disponíveis e configurações salvas
+  useEffect(() => {
+    loadSerialPorts();
+    loadSavedConfigs();
+  }, []);
+  
+  // Carregar configurações salvas do localStorage
+  const loadSavedConfigs = () => {
+    try {
+      const saved = localStorage.getItem('portConfigs');
+      if (saved) {
+        const savedConfigs = JSON.parse(saved);
+        // Resetar status de conexão ao carregar (não reconectar automaticamente)
+        const resetConfigs: {[key: number]: {port: string, baud: string, connected: boolean}} = {};
+        Object.keys(savedConfigs).forEach((portNum) => {
+          resetConfigs[Number(portNum)] = {
+            ...savedConfigs[Number(portNum)],
+            connected: false // Resetar conexão ao carregar
+          };
+        });
+        setPortConfigs(resetConfigs);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configurações salvas:', error);
+    }
+  };
+  
+  // Função para reconectar todas as portas salvas
+  const reconnectAllSavedPorts = async () => {
+    try {
+      const saved = localStorage.getItem('portConfigs');
+      if (saved) {
+        const savedConfigs = JSON.parse(saved);
+        const promises = [];
+        
+        Object.keys(savedConfigs).forEach((portNum) => {
+          const config = savedConfigs[Number(portNum)];
+          if (config.port) {
+            // Atualizar configuração primeiro
+            setPortConfigs(prev => ({
+              ...prev,
+              [Number(portNum)]: config
+            }));
+            
+            // Reconectar se tinha porta configurada
+            if (config.port) {
+              promises.push(
+                apiService.connectPort(Number(portNum), config.port, parseInt(config.baud))
+                  .then(result => {
+                    if (result.status === 'success') {
+                      setPortConfigs(prev => ({
+                        ...prev,
+                        [Number(portNum)]: { ...prev[Number(portNum)], connected: true }
+                      }));
+                    }
+                  })
+                  .catch(err => console.error(`Erro ao reconectar porta ${portNum}:`, err))
+              );
+            }
+          }
+        });
+        
+        await Promise.all(promises);
+        alert('Tentativa de reconexão concluída');
+      }
+    } catch (error) {
+      console.error('Erro ao reconectar portas:', error);
+    }
+  };
+  
+  // Salvar configurações no localStorage
+  const saveConfigs = () => {
+    try {
+      localStorage.setItem('portConfigs', JSON.stringify(portConfigs));
+      alert('Configurações salvas com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error);
+      alert('Erro ao salvar configurações');
+    }
+  };
+  
+  const loadSerialPorts = async () => {
+    try {
+      const result = await apiService.getSerialPorts();
+      if (result.status === 'success') {
+        setSerialPorts(result.ports || []);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar portas:', error);
+    }
+  };
+  
+  const handleConnectPort = async (portNum: number) => {
+    const config = portConfigs[portNum];
+    if (!config.port) {
+      alert(`Selecione uma porta para a Porta ${portNum}`);
+      return;
+    }
+    
+    try {
+      const result = await apiService.connectPort(portNum, config.port, parseInt(config.baud));
+      if (result.status === 'success') {
+        const newConfigs = {
+          ...portConfigs,
+          [portNum]: { ...portConfigs[portNum], connected: true }
+        };
+        setPortConfigs(newConfigs);
+        // Salvar automaticamente após conectar
+        localStorage.setItem('portConfigs', JSON.stringify(newConfigs));
+      } else {
+        alert(`Erro: ${result.message}`);
+      }
+    } catch (error: any) {
+      alert(`Erro ao conectar: ${error.message}`);
+    }
+  };
+  
+  const handleDisconnectPort = async (portNum: number) => {
+    try {
+      const result = await apiService.disconnectPort(portNum);
+      if (result.status === 'success') {
+        const newConfigs = {
+          ...portConfigs,
+          [portNum]: { ...portConfigs[portNum], connected: false }
+        };
+        setPortConfigs(newConfigs);
+        // Salvar automaticamente após desconectar
+        localStorage.setItem('portConfigs', JSON.stringify(newConfigs));
+      }
+    } catch (error: any) {
+      alert(`Erro ao desconectar: ${error.message}`);
+    }
+  };
+  
+  const handleSendCommand = async (portNum: number) => {
+    const command = commands[portNum];
+    if (!command.trim()) {
+      alert('Digite um comando');
+      return;
+    }
+    
+    if (!portConfigs[portNum].connected) {
+      alert(`Conecte a Porta ${portNum} primeiro`);
+      return;
+    }
+    
+    try {
+      const result = await apiService.sendCommand(portNum, command);
+      if (result.status === 'success') {
+        // Comando enviado com sucesso
+        setCommands(prev => ({ ...prev, [portNum]: '' }));
+      } else {
+        alert(`Erro: ${result.message}`);
+      }
+    } catch (error: any) {
+      alert(`Erro ao enviar comando: ${error.message}`);
+    }
+  };
+  
+  const handleSendHome = async (portNum: number) => {
+    if (!portConfigs[portNum].connected) {
+      alert(`Conecte a Porta ${portNum} primeiro`);
+      return;
+    }
+    
+    try {
+      await apiService.sendHomeCommand(portNum);
+    } catch (error: any) {
+      alert(`Erro ao enviar Home: ${error.message}`);
+    }
+  };
+  
+  const handleMove = async (direction: 'up' | 'down' | 'left' | 'right') => {
+    if (!portConfigs[2].connected) {
+      alert('Conecte a Porta 2 (Motores) primeiro');
+      return;
+    }
+    
+    let newX = positionX;
+    let newY = positionY;
+    
+    switch (direction) {
+      case 'up':
+        newY += steps;
+        break;
+      case 'down':
+        newY -= steps;
+        break;
+      case 'left':
+        newX -= steps;
+        break;
+      case 'right':
+        newX += steps;
+        break;
+    }
+    
+    try {
+      const command = `G90 X${newX} Y${newY}`;
+      await apiService.sendCommand(2, command);
+      setPositionX(newX);
+      setPositionY(newY);
+    } catch (error: any) {
+      alert(`Erro ao mover: ${error.message}`);
+    }
+  };
 
   return (
     <div className="p-2 h-full w-full bg-[#F8F9FA] font-sans text-xs overflow-hidden flex gap-2">
@@ -58,14 +344,68 @@ const Config = () => {
                     <div className="grid grid-cols-4 gap-2">
                     {[1, 2, 3, 4].map(num => (
                         <div key={num} className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between"><label className="font-bold text-[#014E7F]">Porta {num}:</label><RBSSelect><option>COM{num}</option></RBSSelect></div>
-                        <div className="flex items-center justify-between"><label className="font-bold text-[#014E7F]">Taxa:</label><RBSSelect><option>115200</option></RBSSelect></div>
-                        <RBSButton className="h-6 text-[10px]">Conectar</RBSButton>
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-[#014E7F]">Porta {num}:</label>
+                          <RBSSelect 
+                            value={portConfigs[num].port}
+                            onChange={(e) => {
+                              const newConfigs = {
+                                ...portConfigs,
+                                [num]: { ...portConfigs[num], port: e.target.value }
+                              };
+                              setPortConfigs(newConfigs);
+                              // Salvar automaticamente ao alterar
+                              localStorage.setItem('portConfigs', JSON.stringify(newConfigs));
+                            }}
+                          >
+                            <option value="">Selecione</option>
+                            {serialPorts.map((p: any) => (
+                              <option key={p.device} value={p.device}>{p.device}</option>
+                            ))}
+                          </RBSSelect>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-[#014E7F]">Taxa:</label>
+                          <RBSSelect 
+                            value={portConfigs[num].baud}
+                            onChange={(e) => {
+                              const newConfigs = {
+                                ...portConfigs,
+                                [num]: { ...portConfigs[num], baud: e.target.value }
+                              };
+                              setPortConfigs(newConfigs);
+                              // Salvar automaticamente ao alterar
+                              localStorage.setItem('portConfigs', JSON.stringify(newConfigs));
+                            }}
+                          >
+                            <option value="9600">9600</option>
+                            <option value="115200">115200</option>
+                          </RBSSelect>
+                        </div>
+                        {portConfigs[num].connected ? (
+                          <RBSButton 
+                            className="h-6 text-[10px] bg-red-500" 
+                            onClick={() => handleDisconnectPort(num)}
+                          >
+                            Desconectar
+                          </RBSButton>
+                        ) : (
+                          <RBSButton 
+                            className="h-6 text-[10px]" 
+                            onClick={() => handleConnectPort(num)}
+                          >
+                            Conectar
+                          </RBSButton>
+                        )}
                         </div>
                     ))}
                     </div>
+                    <div className="flex gap-1">
+                      <RBSButton className="h-6 text-[10px]" onClick={loadSerialPorts}>Atualizar Portas</RBSButton>
+                      <RBSButton className="h-6 text-[10px] bg-green-500" onClick={reconnectAllSavedPorts}>Reconectar Salvas</RBSButton>
+                    </div>
                     <div className="flex-1 bg-black border-2 border-slate-500 p-1 font-mono text-green-500 text-[10px] overflow-y-auto">_</div>
-                    <RBSButton className="w-full">Salvar Porta/Taxa</RBSButton>
+                    <RBSButton className="w-full" onClick={saveConfigs}>Salvar Porta/Taxa</RBSButton>
                 </div>
                 )}
 
@@ -77,27 +417,77 @@ const Config = () => {
                     <div className="w-1/3 flex flex-col gap-3">
                         {/* Bloco Home */}
                         <div className="bg-[#BFCDDB] p-2 rounded-xl flex gap-2 h-28 items-stretch shadow-sm border border-slate-300">
-                            <RBSButton className="flex-1 h-full text-xs whitespace-normal leading-4" rounded="xl">Home - Todos os Eixos</RBSButton>
-                            <RBSButton className="w-16 h-full text-xs whitespace-normal leading-4" rounded="xl">Libera Home</RBSButton>
+                            <RBSButton 
+                              className="flex-1 h-full text-xs whitespace-normal leading-4" 
+                              rounded="xl"
+                              onClick={() => handleSendHome(2)}
+                            >
+                              Home - Todos os Eixos
+                            </RBSButton>
+                            <RBSButton 
+                              className="w-16 h-full text-xs whitespace-normal leading-4" 
+                              rounded="xl"
+                              onClick={() => apiService.sendCommand(2, '$X')}
+                            >
+                              Libera Home
+                            </RBSButton>
                         </div>
 
                         {/* Bloco Ações */}
                         <div className="bg-[#BFCDDB] p-2 rounded-xl flex flex-col gap-2 shadow-sm border border-slate-300">
                             <div className="grid grid-cols-3 gap-2">
-                                <RBSButton className="h-12 text-[10px] whitespace-normal leading-3" rounded="xl">Pressor Finger</RBSButton>
-                                <RBSButton className="h-12 text-[10px] whitespace-normal leading-3" rounded="xl">Pistão Camera</RBSButton>
-                                <RBSButton variant="darkBlue" className="h-12 text-[10px] whitespace-normal leading-3" rounded="xl">Led Off</RBSButton>
+                                <RBSButton 
+                                  className="h-12 text-[10px] whitespace-normal leading-3" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'P_1')}
+                                >
+                                  Pressor Finger
+                                </RBSButton>
+                                <RBSButton 
+                                  className="h-12 text-[10px] whitespace-normal leading-3" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'K7_1')}
+                                >
+                                  Pistão Camera
+                                </RBSButton>
+                                <RBSButton 
+                                  variant="darkBlue" 
+                                  className="h-12 text-[10px] whitespace-normal leading-3" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'B1_0')}
+                                >
+                                  Led Off
+                                </RBSButton>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                                <RBSButton variant="darkBlue" className="h-8 text-[10px]" rounded="xl">Alimentação B1</RBSButton>
-                                <RBSButton variant="darkBlue" className="h-8 text-[10px]" rounded="xl">Alimentação B2</RBSButton>
+                                <RBSButton 
+                                  variant="darkBlue" 
+                                  className="h-8 text-[10px]" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'B1_1')}
+                                >
+                                  Alimentação B1
+                                </RBSButton>
+                                <RBSButton 
+                                  variant="darkBlue" 
+                                  className="h-8 text-[10px]" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'B1_1')}
+                                >
+                                  Alimentação B2
+                                </RBSButton>
                             </div>
                         </div>
 
                         {/* Bloco Passos */}
                         <div className="bg-[#BFCDDB] p-3 rounded-xl shadow-sm border border-slate-300">
                             <label className="text-[11px] font-bold text-[#014E7F] block mb-1">QTD. Passos</label>
-                            <input className="w-full h-10 rounded-lg border border-[#014E7F] px-2 text-lg font-bold" defaultValue="1" />
+                            <input 
+                              className="w-full h-10 rounded-lg border border-[#014E7F] px-2 text-lg font-bold" 
+                              type="number"
+                              value={steps}
+                              onChange={(e) => setSteps(Number(e.target.value))}
+                            />
                         </div>
                     </div>
 
@@ -107,14 +497,50 @@ const Config = () => {
                         {/* Topo: Botões Berço */}
                         <div className="flex justify-between px-2 mt-2 z-10 relative">
                             <div className="flex flex-col gap-2">
-                                <RBSButton className="w-20 h-10 text-[10px] whitespace-normal leading-3" rounded="xl">Move Berço 1</RBSButton>
-                                <RBSButton className="w-20 h-10 text-[10px]" rounded="xl">Pilha 1</RBSButton>
-                                <RBSButton className="w-20 h-10 text-[10px] whitespace-normal leading-3" rounded="xl">Trava Berço 1</RBSButton>
+                                <RBSButton 
+                                  className="w-20 h-10 text-[10px] whitespace-normal leading-3" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'K2_1')}
+                                >
+                                  Move Berço 1
+                                </RBSButton>
+                                <RBSButton 
+                                  className="w-20 h-10 text-[10px]" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'K7_1')}
+                                >
+                                  Pilha 1
+                                </RBSButton>
+                                <RBSButton 
+                                  className="w-20 h-10 text-[10px] whitespace-normal leading-3" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'K4_1')}
+                                >
+                                  Trava Berço 1
+                                </RBSButton>
                             </div>
                             <div className="flex flex-col gap-2">
-                                <RBSButton className="w-20 h-10 text-[10px] whitespace-normal leading-3" rounded="xl">Move Berço 2</RBSButton>
-                                <RBSButton className="w-20 h-10 text-[10px]" rounded="xl">Pilha 2</RBSButton>
-                                <RBSButton className="w-20 h-10 text-[10px] whitespace-normal leading-3" rounded="xl">Trava Berço 2</RBSButton>
+                                <RBSButton 
+                                  className="w-20 h-10 text-[10px] whitespace-normal leading-3" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'K2_1')}
+                                >
+                                  Move Berço 2
+                                </RBSButton>
+                                <RBSButton 
+                                  className="w-20 h-10 text-[10px]" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'K7_1')}
+                                >
+                                  Pilha 2
+                                </RBSButton>
+                                <RBSButton 
+                                  className="w-20 h-10 text-[10px] whitespace-normal leading-3" 
+                                  rounded="xl"
+                                  onClick={() => apiService.sendCommand(1, 'K4_1')}
+                                >
+                                  Trava Berço 2
+                                </RBSButton>
                             </div>
                         </div>
 
@@ -128,10 +554,10 @@ const Config = () => {
                                 <span className="col-start-2 row-start-3 text-[#014E7F] font-bold -mr-8 text-[10px]">Y -</span>
 
                                 {/* Botões Verdes */}
-                                <div className="col-start-2 row-start-1"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowUp size={20} strokeWidth={3} />} /></div>
-                                <div className="col-start-1 row-start-2"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowLeft size={20} strokeWidth={3} />} /></div>
-                                <div className="col-start-3 row-start-2"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowRight size={20} strokeWidth={3} />} /></div>
-                                <div className="col-start-2 row-start-3"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowDown size={20} strokeWidth={3} />} /></div>
+                                <div className="col-start-2 row-start-1"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowUp size={20} strokeWidth={3} />} onClick={() => handleMove('up')} /></div>
+                                <div className="col-start-1 row-start-2"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowLeft size={20} strokeWidth={3} />} onClick={() => handleMove('left')} /></div>
+                                <div className="col-start-3 row-start-2"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowRight size={20} strokeWidth={3} />} onClick={() => handleMove('right')} /></div>
+                                <div className="col-start-2 row-start-3"><RBSCircularBtn variant="green" size="w-10 h-10" icon={<ArrowDown size={20} strokeWidth={3} />} onClick={() => handleMove('down')} /></div>
                             </div>
                         </div>
 
@@ -139,11 +565,11 @@ const Config = () => {
                         <div className="mt-auto flex flex-col gap-2 px-4 mb-2">
                             <div className="bg-[#014E7F] h-8 rounded-full flex items-center justify-between px-8 relative shadow-md border-2 border-white">
                                 <span className="text-white font-bold text-lg">X {'->'}</span>
-                                <span className="text-[#FFFF00] font-bold text-xl">0</span>
+                                <span className="text-[#FFFF00] font-bold text-xl">{positionX.toFixed(3)}</span>
                             </div>
                             <div className="bg-[#014E7F] h-8 rounded-full flex items-center justify-between px-8 relative shadow-md border-2 border-white">
                                 <span className="text-white font-bold text-lg">Y {'->'}</span>
-                                <span className="text-[#FFFF00] font-bold text-xl">0</span>
+                                <span className="text-[#FFFF00] font-bold text-xl">{positionY.toFixed(3)}</span>
                             </div>
                         </div>
                         <span className="text-[10px] text-[#014E7F] ml-1">Imagens serão salvas em:</span>
@@ -323,13 +749,18 @@ const Config = () => {
                     
                     <RBSGroupBox title="Enviar Comandos {Acionamentos} - Serial 1">
                       <div className="flex flex-col gap-1">
-                        <input className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" />
+                        <input 
+                          className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" 
+                          value={commands[1]}
+                          onChange={(e) => setCommands(prev => ({ ...prev, 1: e.target.value }))}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendCommand(1)}
+                        />
                         <div className="h-24 bg-[#014E7F] w-full border border-[#003355]"></div>
                         <div className="flex justify-between mt-1">
                           <RBSButton variant="orange" className="w-28 text-[10px]">Teclado Virtual</RBSButton>
                           <div className="flex gap-1">
-                            <RBSButton variant="orange" className="w-16 text-[10px]">Limpar</RBSButton>
-                            <RBSButton variant="orange" className="w-16 text-[10px]">Enviar</RBSButton>
+                            <RBSButton variant="orange" className="w-16 text-[10px]" onClick={() => setCommands(prev => ({ ...prev, 1: '' }))}>Limpar</RBSButton>
+                            <RBSButton variant="orange" className="w-16 text-[10px]" onClick={() => handleSendCommand(1)}>Enviar</RBSButton>
                           </div>
                         </div>
                       </div>
@@ -337,13 +768,18 @@ const Config = () => {
 
                     <RBSGroupBox title="Enviar Comandos {Motores} - Serial 2">
                       <div className="flex flex-col gap-1">
-                        <input className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" />
+                        <input 
+                          className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" 
+                          value={commands[2]}
+                          onChange={(e) => setCommands(prev => ({ ...prev, 2: e.target.value }))}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendCommand(2)}
+                        />
                         <div className="h-24 bg-[#014E7F] w-full border border-[#003355]"></div>
                         <div className="flex justify-between mt-1">
                           <RBSButton variant="orange" className="w-28 text-[10px]">Parâmetros GRBL</RBSButton>
                           <div className="flex gap-1">
-                            <RBSButton variant="orange" className="w-16 text-[10px]">Limpar</RBSButton>
-                            <RBSButton variant="orange" className="w-16 text-[10px]">Enviar</RBSButton>
+                            <RBSButton variant="orange" className="w-16 text-[10px]" onClick={() => setCommands(prev => ({ ...prev, 2: '' }))}>Limpar</RBSButton>
+                            <RBSButton variant="orange" className="w-16 text-[10px]" onClick={() => handleSendCommand(2)}>Enviar</RBSButton>
                           </div>
                         </div>
                       </div>
@@ -351,22 +787,32 @@ const Config = () => {
 
                     <RBSGroupBox title="Enviar Comandos {IR} - Serial 3">
                       <div className="flex flex-col gap-1">
-                        <input className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" />
+                        <input 
+                          className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" 
+                          value={commands[3]}
+                          onChange={(e) => setCommands(prev => ({ ...prev, 3: e.target.value }))}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendCommand(3)}
+                        />
                         <div className="h-24 bg-[#014E7F] w-full border border-[#003355]"></div>
                         <div className="flex justify-end gap-1 mt-1">
-                          <RBSButton variant="orange" className="w-16 text-[10px]">Limpar</RBSButton>
-                          <RBSButton variant="orange" className="w-16 text-[10px]">Enviar</RBSButton>
+                          <RBSButton variant="orange" className="w-16 text-[10px]" onClick={() => setCommands(prev => ({ ...prev, 3: '' }))}>Limpar</RBSButton>
+                          <RBSButton variant="orange" className="w-16 text-[10px]" onClick={() => handleSendCommand(3)}>Enviar</RBSButton>
                         </div>
                       </div>
                     </RBSGroupBox>
 
                     <RBSGroupBox title="Enviar Comandos {IR} - Serial 4">
                       <div className="flex flex-col gap-1">
-                        <input className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" />
+                        <input 
+                          className="w-full bg-[#BFCDDB] border-none h-6 text-xs px-1 outline-none font-bold text-[#014E7F]" 
+                          value={commands[4]}
+                          onChange={(e) => setCommands(prev => ({ ...prev, 4: e.target.value }))}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendCommand(4)}
+                        />
                         <div className="h-24 bg-[#014E7F] w-full border border-[#003355]"></div>
                         <div className="flex justify-end gap-1 mt-1">
-                          <RBSButton variant="orange" className="w-16 text-[10px]">Limpar</RBSButton>
-                          <RBSButton variant="orange" className="w-16 text-[10px]">Enviar</RBSButton>
+                          <RBSButton variant="orange" className="w-16 text-[10px]" onClick={() => setCommands(prev => ({ ...prev, 4: '' }))}>Limpar</RBSButton>
+                          <RBSButton variant="orange" className="w-16 text-[10px]" onClick={() => handleSendCommand(4)}>Enviar</RBSButton>
                         </div>
                       </div>
                     </RBSGroupBox>
@@ -388,10 +834,20 @@ const Config = () => {
                 <div className="flex-1 flex flex-col h-full">
                   <div className="flex-1 flex gap-2 min-h-0">
                     <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-2">
-                      <div className="bg-[#DDEEFF] border border-slate-300 p-1 text-[#014E7F]">Câmera 1</div>
-                      <div className="bg-[#DDEEFF] border border-slate-300 p-1 text-[#014E7F]">Câmera 2</div>
-                      <div className="bg-[#DDEEFF] border border-slate-300 p-1 text-[#014E7F]">Câmera 3</div>
-                      <div className="bg-[#DDEEFF] border border-slate-300 p-1 text-[#014E7F]">Câmera 4</div>
+                      {[0, 1, 2, 3].map((displayNum) => {
+                        const cameraId = cameraPositions[displayNum];
+                        return (
+                          <CameraConfigItem
+                            key={displayNum}
+                            cameraId={cameraId}
+                            displayNumber={displayNum + 1}
+                            rotation={cameraRotations[cameraId] || 0}
+                            onRotate={handleCameraRotate}
+                            onSwap={handleCameraSwap}
+                            onCapture={handleCameraCapture}
+                          />
+                        );
+                      })}
                     </div>
 
                     <div className="w-20 flex flex-col items-center gap-4 py-2">
@@ -400,8 +856,13 @@ const Config = () => {
                           <span className="text-[10px] text-center leading-tight text-[#014E7F]">Salvar ROI</span>
                        </div>
                        <div className="flex flex-col items-center gap-1">
-                          <RBSCircularBtn variant="green" size="w-12 h-12" icon={<Camera size={20} />} />
-                          <span className="text-[10px] text-center leading-tight text-[#014E7F]">Captura Imagem</span>
+                          <RBSCircularBtn 
+                            variant="green" 
+                            size="w-12 h-12" 
+                            icon={<Camera size={20} />}
+                            onClick={captureAllCameras}
+                          />
+                          <span className="text-[10px] text-center leading-tight text-[#014E7F]">Captura Todas</span>
                        </div>
                        <div className="flex flex-col items-center gap-1">
                           <RBSCircularBtn variant="green" size="w-12 h-12" icon={<Video size={20} />} />
@@ -418,6 +879,25 @@ const Config = () => {
                              <span className="text-[10px] text-center leading-tight text-[#014E7F]">ROI 2</span>
                           </div>
                        </div>
+                    </div>
+                  </div>
+                  
+                  {/* Controles de Troca de Posição */}
+                  <div className="h-16 mt-2 flex gap-2 items-center bg-slate-50 p-2 rounded border border-slate-200">
+                    <span className="text-[10px] text-[#014E7F] font-bold">Trocar Posições:</span>
+                    <div className="flex gap-1 flex-1">
+                      {[0, 1, 2, 3].map((displayNum) => {
+                        const nextDisplay = (displayNum + 1) % 4;
+                        return (
+                          <button
+                            key={displayNum}
+                            onClick={() => handleCameraSwap(displayNum, nextDisplay)}
+                            className="px-2 py-1 bg-[#014E7F] text-white text-[9px] rounded hover:bg-[#003366]"
+                          >
+                            {displayNum + 1} ↔ {nextDisplay + 1}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 

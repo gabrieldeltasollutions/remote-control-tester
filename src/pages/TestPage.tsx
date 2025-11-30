@@ -14,10 +14,53 @@ const TestPage = () => {
   const [serverStatus, setServerStatus] = useState('checking');
   const [testStatus, setTestStatus] = useState('idle');
   const [message, setMessage] = useState('');
+  const [cameraPositions, setCameraPositions] = useState<number[]>([0, 1, 2, 3]);
+  const [approvedCount, setApprovedCount] = useState(0);
+  const [rejectedCount, setRejectedCount] = useState(0);
+  const [testReport, setTestReport] = useState<any>(null);
 
   useEffect(() => {
     checkServerStatus();
+    loadCameraPositions();
+    
+    // Listener para mudanças no localStorage (quando trocar posições nas configurações)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'cameraPositions') {
+        loadCameraPositions();
+      }
+    };
+    
+    // Listener para evento customizado (mudanças na mesma aba)
+    const handleCameraPositionsChanged = () => {
+      loadCameraPositions();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('cameraPositionsChanged', handleCameraPositionsChanged);
+    
+    // Também verificar mudanças periodicamente (fallback)
+    const interval = setInterval(() => {
+      loadCameraPositions();
+    }, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('cameraPositionsChanged', handleCameraPositionsChanged);
+      clearInterval(interval);
+    };
   }, []);
+  
+  const loadCameraPositions = () => {
+    try {
+      const saved = localStorage.getItem('cameraPositions');
+      if (saved) {
+        const positions = JSON.parse(saved);
+        setCameraPositions(positions);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar posições das câmeras:', error);
+    }
+  };
 
   const checkServerStatus = async () => {
     setServerStatus('checking');
@@ -36,6 +79,71 @@ const TestPage = () => {
 
     return () => interval && clearInterval(interval);
   }, [isTestRunning]);
+
+  // Busca o relatório de validação periodicamente
+  useEffect(() => {
+    const fetchReport = async () => {
+      try {
+        const response = await apiService.getTestReport();
+        if (response.status === 'success' && response.relatorio) {
+          setTestReport(response.relatorio);
+          
+          // Atualiza contadores
+          const resumo = response.relatorio.resumo || {};
+          setApprovedCount(resumo.controles_aprovados || 0);
+          setRejectedCount(resumo.controles_reprovados || 0);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar relatório:', error);
+      }
+    };
+
+    // Busca imediatamente e depois a cada 2 segundos
+    fetchReport();
+    const interval = setInterval(fetchReport, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Busca mensagens da pneumática periodicamente
+  useEffect(() => {
+    const fetchPneumaticMessage = async () => {
+      try {
+        const response = await apiService.getPneumaticMessage();
+        if (response.status === 'success') {
+          if (response.message) {
+            // Atualiza a mensagem na dashboard
+            setMessage(response.message);
+            
+            // Se recebeu START e está pronto, atualiza o status
+            if (response.message.includes('START recebido') && response.ready) {
+              setIsTestRunning(true);
+              setTestStatus('running');
+            }
+          } else if (response.ready) {
+            // Se as portas estão conectadas mas não há mensagem, mostra status pronto
+            // Só atualiza se não houver uma mensagem importante
+            setMessage((prevMessage) => {
+              if (!prevMessage || 
+                  prevMessage === '⏹️ Teste interrompido' ||
+                  prevMessage.includes('Pronto para receber')) {
+                return '🟢 Pronto para receber START via pneumática';
+              }
+              return prevMessage;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar mensagem pneumática:', error);
+      }
+    };
+
+    // Busca imediatamente e depois a cada 1 segundo (mais frequente para mensagens)
+    fetchPneumaticMessage();
+    const interval = setInterval(fetchPneumaticMessage, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const formatTime = (totalSeconds) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -71,12 +179,37 @@ const TestPage = () => {
     }
   };
 
+  const executeFingerDownWithPhotos = async () => {
+    if (serverStatus !== 'online') {
+      setMessage('❌ Servidor offline - Não foi possível iniciar o teste');
+      return;
+    }
+
+    try {
+      setIsTestRunning(true);
+      setTestStatus('running');
+      setMessage('📸 Iniciando sequência FingerDown COM FOTOS...');
+
+      const result = await apiService.executeFingerDownWithPhotos();
+
+      setTestStatus('success');
+      setMessage('✅ FingerDown com fotos executado com sucesso!');
+      console.log('FINGERDOWN COM FOTOS executado:', result);
+    } catch (error) {
+      console.error('Erro no FingerDown com fotos:', error);
+      setTestStatus('error');
+      setMessage('❌ Erro ao executar FingerDown com fotos');
+      setIsTestRunning(false);
+    }
+  };
+
   const handleInputChange = (value) => {
     const val = value.toLowerCase();
 
     if (val.includes('start') && !isTestRunning) {
       setTestTime(0);
-      executeFingerDown();
+      // Agora o "start" também executa com comparação de imagens
+      executeFingerDownWithPhotos();
     }
 
     if (val.includes('stop') && isTestRunning) {
@@ -111,10 +244,10 @@ const TestPage = () => {
                 <div className="grid grid-cols-4 gap-3 mb-4">
 
                   {/* APROVADO */}
-                  <StatusCard title="Aprovado" value={0} variant="success" />
+                  <StatusCard title="Aprovado" value={approvedCount} variant="success" />
 
                   {/* REPROVADO */}
-                  <StatusCard title="Reprovado" value={0} variant="destructive" />
+                  <StatusCard title="Reprovado" value={rejectedCount} variant="destructive" />
 
                   {/* CICLOS */}
                   <StatusCard title="Ciclos" value="" />
@@ -137,6 +270,15 @@ const TestPage = () => {
                       onChange={(e) => handleInputChange(e.target.value)}
                     />
 
+                    <button
+                      onClick={executeFingerDownWithPhotos}
+                      disabled={isTestRunning || serverStatus !== 'online'}
+                      className="w-full mt-2 px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <span>📸</span>
+                      <span>Iniciar com Fotos</span>
+                    </button>
+
                     {message && (
                       <p
                         className={`text-xs mt-1 ${
@@ -146,6 +288,8 @@ const TestPage = () => {
                             ? 'text-success'
                             : message.includes('🔄')
                             ? 'text-blue-500'
+                            : message.includes('📸')
+                            ? 'text-purple-500'
                             : 'text-muted-foreground'
                         }`}
                       >
@@ -186,7 +330,7 @@ const TestPage = () => {
               </div>
 
               {/* REMOTE CONTROLS - NOW MOVED UP */}
-              <RemoteControlContainer />
+              <RemoteControlContainer testReport={testReport} />
             </div>
 
             {/* CENTER */}
@@ -198,10 +342,18 @@ const TestPage = () => {
             {/* RIGHT SIDE */}
             <div className="col-span-6">
               <div className="grid grid-cols-2 gap-4 h-full">
-                <CameraView cameraNumber={1} controlNumber={1} />
-                <CameraView cameraNumber={2} controlNumber={2} />
-                <CameraView cameraNumber={3} controlNumber={3} />
-                <CameraView cameraNumber={4} controlNumber={4} />
+                {[0, 1, 2, 3].map((displayIndex) => {
+                  const cameraId = cameraPositions[displayIndex];
+                  const actualCameraNumber = cameraId + 1; // cameraId é 0-3, cameraNumber é 1-4
+                  return (
+                    <CameraView 
+                      key={displayIndex}
+                      cameraNumber={actualCameraNumber} 
+                      controlNumber={displayIndex + 1}
+                      displayPosition={displayIndex + 1}
+                    />
+                  );
+                })}
               </div>
             </div>
 

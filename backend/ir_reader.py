@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class IRReader:
     """Classe simplificada apenas para LEITURA de dados IR do servidor Node.js"""
     
-    def __init__(self, base_url: str = "http://localhost:3001"):
+    def __init__(self, base_url: str = "http://localhost:55796"):
         self.base_url = base_url
         self.session = None
         

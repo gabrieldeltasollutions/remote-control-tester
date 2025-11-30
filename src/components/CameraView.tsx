@@ -4,19 +4,51 @@ import { Button } from "@/components/ui/button";
 interface CameraViewProps {
   cameraNumber: number;
   controlNumber: number;
+  displayPosition?: number;
 }
 
 const API_BASE_URL = 'http://localhost:8000';
 
-const CameraView = ({ cameraNumber, controlNumber }: CameraViewProps) => {
+const CameraView = ({ cameraNumber, controlNumber, displayPosition }: CameraViewProps) => {
   const [cameraStatus, setCameraStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
   const [hasFrame, setHasFrame] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [rotation, setRotation] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // ID da câmera (0-3) baseado no cameraNumber (1-4)
   const cameraId = cameraNumber - 1;
+  
+  // Carregar rotação salva e verificar mudanças
+  useEffect(() => {
+    const loadRotation = () => {
+      const savedRotations = localStorage.getItem('cameraRotations');
+      if (savedRotations) {
+        const rotations = JSON.parse(savedRotations);
+        if (rotations[cameraId] !== undefined) {
+          setRotation(rotations[cameraId]);
+        }
+      }
+    };
+    
+    loadRotation();
+    
+    // Verificar mudanças na rotação periodicamente
+    const interval = setInterval(loadRotation, 500);
+    return () => clearInterval(interval);
+  }, [cameraId]);
+  
+  const handleRotate = () => {
+    const newRotation = (rotation + 90) % 360;
+    setRotation(newRotation);
+    
+    // Salvar rotação
+    const savedRotations = localStorage.getItem('cameraRotations');
+    const rotations = savedRotations ? JSON.parse(savedRotations) : {};
+    rotations[cameraId] = newRotation;
+    localStorage.setItem('cameraRotations', JSON.stringify(rotations));
+  };
 
   // Verificar status da câmera
   const checkCameraStatus = async () => {
@@ -114,16 +146,15 @@ const CameraView = ({ cameraNumber, controlNumber }: CameraViewProps) => {
       border-black/30 
       flex 
       flex-col 
-      w-[350px]
-      h-[350px]
-      max-h-[320px]
+      w-full
+      h-full
       min-h-[220px]
       aspect-video
     ">
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">
-            Câmera {cameraNumber} - Controle {controlNumber}
+            Câmera {displayPosition || cameraNumber} - Controle {controlNumber}
           </h2>
           <div className={`w-2 h-2 rounded-full ${
             cameraStatus === 'connected' ? 'bg-green-500' : 
@@ -131,15 +162,26 @@ const CameraView = ({ cameraNumber, controlNumber }: CameraViewProps) => {
             'bg-red-500'
           }`} />
         </div>
-        <Button 
-          variant="default" 
-          size="sm" 
-          className="text-xs h-7"
-          onClick={handleReconnect}
-          disabled={isReconnecting}
-        >
-          {isReconnecting ? 'Reconectando...' : 'Reconectar'}
-        </Button>
+        <div className="flex gap-1">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-xs h-7"
+            onClick={handleRotate}
+            title="Rotacionar 90°"
+          >
+            ↻
+          </Button>
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="text-xs h-7"
+            onClick={handleReconnect}
+            disabled={isReconnecting}
+          >
+            {isReconnecting ? 'Reconectando...' : 'Reconectar'}
+          </Button>
+        </div>
       </div>
 
       <div className="bg-black rounded-lg flex-1 flex items-center justify-center relative overflow-hidden">
@@ -150,6 +192,7 @@ const CameraView = ({ cameraNumber, controlNumber }: CameraViewProps) => {
               src={`${API_BASE_URL}/stream/${cameraId}`}
               alt={`Câmera ${cameraNumber}`}
               className="w-full h-full object-contain"
+              style={{ transform: `rotate(${rotation}deg)` }}
               onError={handleStreamError}
               onLoad={handleStreamLoad}
             />

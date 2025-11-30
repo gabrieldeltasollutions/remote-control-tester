@@ -1,0 +1,1506 @@
+{
+  "metadata": {
+    "arquivo_salvo_em": "2025-11-29T21:01:03.488946",
+    "ciclo_teste": 1,
+    "total_botoes_mapeados": 16,
+    "sequencia_executada": "FingerDown + Início1",
+    "timestamp_inicio": "2025-11-29T20:59:36.238712",
+    "timestamp_fim": "2025-11-29T21:01:03.488951",
+    "diretorio_fotos": "test_results\\ciclo_1_20251129_205931\\fotos"
+  },
+  "botoes_mapeados": [
+    {
+      "botao_numero": 1,
+      "coordenadas": {
+        "command": "G90",
+        "x": 41,
+        "y": 135,
+        "nome": "POWER"
+      },
+      "timestamp": "2025-11-29T20:59:36.238712",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "POWER",
+      "comando_executado": "Pressionar POWER em X41 Y135",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_001_POWER_camera_0_20251129_205933_553797.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_001_POWER_camera_0_20251129_205933_553797.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_001_POWER_camera_1_20251129_205933_579676.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_001_POWER_camera_1_20251129_205933_579676.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_001_POWER_camera_2_20251129_205933_602079.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_001_POWER_camera_2_20251129_205933_602079.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_001_POWER_camera_3_20251129_205933_624884.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_001_POWER_camera_3_20251129_205933_624884.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.9053,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.9097,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9581,
+            "similaridade_hist": 0.7967,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_001_POWER_camera_0_20251129_200253_487455.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8759,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9517,
+            "similaridade_hist": 0.6991,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_001_POWER_camera_1_20251129_200253_530032.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9012,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9797,
+            "similaridade_hist": 0.718,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_001_POWER_camera_2_20251129_200253_551899.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9345,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9749,
+            "similaridade_hist": 0.8402,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_001_POWER_camera_3_20251129_200253_578036.jpg"
+          }
+        ]
+      },
+      "controle_numero": 1
+    },
+    {
+      "botao_numero": 2,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 135,
+        "nome": "FUNCAO"
+      },
+      "timestamp": "2025-11-29T20:59:42.061330",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "FUNCAO",
+      "comando_executado": "Pressionar FUNCAO em X14 Y135",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_002_FUNCAO_camera_0_20251129_205939_372669.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_002_FUNCAO_camera_0_20251129_205939_372669.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_002_FUNCAO_camera_1_20251129_205939_395383.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_002_FUNCAO_camera_1_20251129_205939_395383.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_002_FUNCAO_camera_2_20251129_205939_418069.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_002_FUNCAO_camera_2_20251129_205939_418069.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_002_FUNCAO_camera_3_20251129_205939_441038.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_002_FUNCAO_camera_3_20251129_205939_441038.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.9093,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.9413,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9558,
+            "similaridade_hist": 0.9074,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_002_FUNCAO_camera_0_20251129_200259_321349.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8706,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9483,
+            "similaridade_hist": 0.6893,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_002_FUNCAO_camera_1_20251129_200259_347350.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9202,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.977,
+            "similaridade_hist": 0.7877,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_002_FUNCAO_camera_2_20251129_200259_371460.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9049,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9753,
+            "similaridade_hist": 0.7404,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_002_FUNCAO_camera_3_20251129_200259_391553.jpg"
+          }
+        ]
+      },
+      "controle_numero": 2
+    },
+    {
+      "botao_numero": 3,
+      "coordenadas": {
+        "command": "G90",
+        "x": 28,
+        "y": 127,
+        "nome": "TEMP_MAX"
+      },
+      "timestamp": "2025-11-29T20:59:47.861713",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "TEMP_MAX",
+      "comando_executado": "Pressionar TEMP_MAX em X28 Y127",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_003_TEMP_MAX_camera_0_20251129_205945_189680.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_003_TEMP_MAX_camera_0_20251129_205945_189680.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_003_TEMP_MAX_camera_1_20251129_205945_216473.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_003_TEMP_MAX_camera_1_20251129_205945_216473.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_003_TEMP_MAX_camera_2_20251129_205945_242451.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_003_TEMP_MAX_camera_2_20251129_205945_242451.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_003_TEMP_MAX_camera_3_20251129_205945_265254.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_003_TEMP_MAX_camera_3_20251129_205945_265254.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8924,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.853,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9544,
+            "similaridade_hist": 0.6164,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_003_TEMP_MAX_camera_0_20251129_200305_122881.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8708,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9457,
+            "similaridade_hist": 0.6959,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_003_TEMP_MAX_camera_1_20251129_200305_145428.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9152,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9784,
+            "similaridade_hist": 0.7679,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_003_TEMP_MAX_camera_2_20251129_200305_168851.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9305,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9762,
+            "similaridade_hist": 0.8238,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_003_TEMP_MAX_camera_3_20251129_200305_190210.jpg"
+          }
+        ]
+      },
+      "controle_numero": 3
+    },
+    {
+      "botao_numero": 4,
+      "coordenadas": {
+        "command": "G90",
+        "x": 41,
+        "y": 114,
+        "nome": "TEMPORIZADOR"
+      },
+      "timestamp": "2025-11-29T20:59:53.694948",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "TEMPORIZADOR",
+      "comando_executado": "Pressionar TEMPORIZADOR em X41 Y114",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_004_TEMPORIZADOR_camera_0_20251129_205950_997010.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_004_TEMPORIZADOR_camera_0_20251129_205950_997010.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_004_TEMPORIZADOR_camera_1_20251129_205951_027655.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_004_TEMPORIZADOR_camera_1_20251129_205951_027655.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_004_TEMPORIZADOR_camera_2_20251129_205951_052332.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_004_TEMPORIZADOR_camera_2_20251129_205951_052332.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_004_TEMPORIZADOR_camera_3_20251129_205951_073838.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_004_TEMPORIZADOR_camera_3_20251129_205951_073838.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8806,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.8233,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9491,
+            "similaridade_hist": 0.5296,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_004_TEMPORIZADOR_camera_0_20251129_200310_942693.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8608,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9452,
+            "similaridade_hist": 0.664,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_004_TEMPORIZADOR_camera_1_20251129_200310_964411.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.91,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9786,
+            "similaridade_hist": 0.7499,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_004_TEMPORIZADOR_camera_2_20251129_200310_987603.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9283,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9764,
+            "similaridade_hist": 0.8161,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_004_TEMPORIZADOR_camera_3_20251129_200311_010349.jpg"
+          }
+        ]
+      },
+      "controle_numero": 4
+    },
+    {
+      "botao_numero": 5,
+      "coordenadas": {
+        "command": "G90",
+        "x": 41,
+        "y": 114,
+        "nome": "TEMPORIZADOR_2"
+      },
+      "timestamp": "2025-11-29T20:59:59.516655",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "TEMPORIZADOR_2",
+      "comando_executado": "Pressionar TEMPORIZADOR_2 em X41 Y114",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_005_TEMPORIZADOR_2_camera_0_20251129_205956_829053.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_005_TEMPORIZADOR_2_camera_0_20251129_205956_829053.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_005_TEMPORIZADOR_2_camera_1_20251129_205956_854849.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_005_TEMPORIZADOR_2_camera_1_20251129_205956_854849.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_005_TEMPORIZADOR_2_camera_2_20251129_205956_879225.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_005_TEMPORIZADOR_2_camera_2_20251129_205956_879225.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_005_TEMPORIZADOR_2_camera_3_20251129_205956_902085.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_005_TEMPORIZADOR_2_camera_3_20251129_205956_902085.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8818,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.83,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9463,
+            "similaridade_hist": 0.5586,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_005_TEMPORIZADOR_2_camera_0_20251129_200316_735693.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8646,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9328,
+            "similaridade_hist": 0.7054,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_005_TEMPORIZADOR_2_camera_1_20251129_200316_756006.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9126,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.978,
+            "similaridade_hist": 0.7598,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_005_TEMPORIZADOR_2_camera_2_20251129_200316_779335.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9199,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9718,
+            "similaridade_hist": 0.7988,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_005_TEMPORIZADOR_2_camera_3_20251129_200316_800918.jpg"
+          }
+        ]
+      },
+      "controle_numero": 1
+    },
+    {
+      "botao_numero": 6,
+      "coordenadas": {
+        "command": "G90",
+        "x": 28,
+        "y": 102,
+        "nome": "TEMP_DOWN"
+      },
+      "timestamp": "2025-11-29T21:00:05.349046",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "TEMP_DOWN",
+      "comando_executado": "Pressionar TEMP_DOWN em X28 Y102",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_006_TEMP_DOWN_camera_0_20251129_210002_647524.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_006_TEMP_DOWN_camera_0_20251129_210002_647524.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_006_TEMP_DOWN_camera_1_20251129_210002_669916.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_006_TEMP_DOWN_camera_1_20251129_210002_669916.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_006_TEMP_DOWN_camera_2_20251129_210002_693526.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_006_TEMP_DOWN_camera_2_20251129_210002_693526.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_006_TEMP_DOWN_camera_3_20251129_210002_718038.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_006_TEMP_DOWN_camera_3_20251129_210002_718038.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.9205,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.9218,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9484,
+            "similaridade_hist": 0.8598,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_006_TEMP_DOWN_camera_0_20251129_200322_534563.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8914,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9401,
+            "similaridade_hist": 0.7779,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_006_TEMP_DOWN_camera_1_20251129_200322_558798.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9614,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9779,
+            "similaridade_hist": 0.9229,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_006_TEMP_DOWN_camera_2_20251129_200322_577693.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9074,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9733,
+            "similaridade_hist": 0.7538,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_006_TEMP_DOWN_camera_3_20251129_200322_602029.jpg"
+          }
+        ]
+      },
+      "controle_numero": 2
+    },
+    {
+      "botao_numero": 7,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 114,
+        "nome": "VELOCIDADE"
+      },
+      "timestamp": "2025-11-29T21:00:11.151482",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "VELOCIDADE",
+      "comando_executado": "Pressionar VELOCIDADE em X14 Y114",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_007_VELOCIDADE_camera_0_20251129_210008_467058.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_007_VELOCIDADE_camera_0_20251129_210008_467058.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_007_VELOCIDADE_camera_1_20251129_210008_491549.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_007_VELOCIDADE_camera_1_20251129_210008_491549.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_007_VELOCIDADE_camera_2_20251129_210008_519041.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_007_VELOCIDADE_camera_2_20251129_210008_519041.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_007_VELOCIDADE_camera_3_20251129_210008_542013.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_007_VELOCIDADE_camera_3_20251129_210008_542013.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8971,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.9319,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9522,
+            "similaridade_hist": 0.8845,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_007_VELOCIDADE_camera_0_20251129_200328_362318.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.881,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9461,
+            "similaridade_hist": 0.729,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_007_VELOCIDADE_camera_1_20251129_200328_385083.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.931,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9762,
+            "similaridade_hist": 0.8255,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_007_VELOCIDADE_camera_2_20251129_200328_409436.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.8443,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9753,
+            "similaridade_hist": 0.5386,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_007_VELOCIDADE_camera_3_20251129_200328_431581.jpg"
+          }
+        ]
+      },
+      "controle_numero": 3
+    },
+    {
+      "botao_numero": 8,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 94,
+        "nome": "OSCILAR"
+      },
+      "timestamp": "2025-11-29T21:00:16.954114",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "OSCILAR",
+      "comando_executado": "Pressionar OSCILAR em X14 Y94",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_008_OSCILAR_camera_0_20251129_210014_271131.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_008_OSCILAR_camera_0_20251129_210014_271131.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_008_OSCILAR_camera_1_20251129_210014_294098.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_008_OSCILAR_camera_1_20251129_210014_294098.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_008_OSCILAR_camera_2_20251129_210014_318151.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_008_OSCILAR_camera_2_20251129_210014_318151.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_008_OSCILAR_camera_3_20251129_210014_340455.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_008_OSCILAR_camera_3_20251129_210014_340455.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8965,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.9348,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9513,
+            "similaridade_hist": 0.8962,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_008_OSCILAR_camera_0_20251129_200334_174350.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.88,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9455,
+            "similaridade_hist": 0.7274,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_008_OSCILAR_camera_1_20251129_200334_197647.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9563,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9762,
+            "similaridade_hist": 0.9099,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_008_OSCILAR_camera_2_20251129_200334_220428.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.815,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.972,
+            "similaridade_hist": 0.4486,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_008_OSCILAR_camera_3_20251129_200334_240851.jpg"
+          }
+        ]
+      },
+      "controle_numero": 4
+    },
+    {
+      "botao_numero": 9,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 71,
+        "nome": "TURBO"
+      },
+      "timestamp": "2025-11-29T21:00:22.772119",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "TURBO",
+      "comando_executado": "Pressionar TURBO em X14 Y71",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_009_TURBO_camera_0_20251129_210020_085399.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_009_TURBO_camera_0_20251129_210020_085399.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_009_TURBO_camera_1_20251129_210020_107338.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_009_TURBO_camera_1_20251129_210020_107338.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_009_TURBO_camera_2_20251129_210020_129792.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_009_TURBO_camera_2_20251129_210020_129792.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_009_TURBO_camera_3_20251129_210020_153668.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_009_TURBO_camera_3_20251129_210020_153668.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.9032,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.9028,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9472,
+            "similaridade_hist": 0.7993,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_009_TURBO_camera_0_20251129_200339_971364.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.9016,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9427,
+            "similaridade_hist": 0.8057,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_009_TURBO_camera_1_20251129_200339_992591.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9684,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.976,
+            "similaridade_hist": 0.9507,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_009_TURBO_camera_2_20251129_200340_016887.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.8402,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9709,
+            "similaridade_hist": 0.5351,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_009_TURBO_camera_3_20251129_200340_043255.jpg"
+          }
+        ]
+      },
+      "controle_numero": 1
+    },
+    {
+      "botao_numero": 10,
+      "coordenadas": {
+        "command": "G90",
+        "x": 24,
+        "y": 71,
+        "nome": "CONFORTO"
+      },
+      "timestamp": "2025-11-29T21:00:28.607478",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "CONFORTO",
+      "comando_executado": "Pressionar CONFORTO em X24 Y71",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_010_CONFORTO_camera_0_20251129_210025_914713.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_010_CONFORTO_camera_0_20251129_210025_914713.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_010_CONFORTO_camera_1_20251129_210025_943331.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_010_CONFORTO_camera_1_20251129_210025_943331.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_010_CONFORTO_camera_2_20251129_210025_970269.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_010_CONFORTO_camera_2_20251129_210025_970269.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_010_CONFORTO_camera_3_20251129_210025_994944.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_010_CONFORTO_camera_3_20251129_210025_994944.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8998,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.829,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9485,
+            "similaridade_hist": 0.5503,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_010_CONFORTO_camera_0_20251129_200345_773304.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8532,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9478,
+            "similaridade_hist": 0.6323,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_010_CONFORTO_camera_1_20251129_200345_795595.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9697,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9748,
+            "similaridade_hist": 0.9578,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_010_CONFORTO_camera_2_20251129_200345_816418.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9472,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.977,
+            "similaridade_hist": 0.8778,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_010_CONFORTO_camera_3_20251129_200345_841223.jpg"
+          }
+        ]
+      },
+      "controle_numero": 2
+    },
+    {
+      "botao_numero": 11,
+      "coordenadas": {
+        "command": "G90",
+        "x": 44,
+        "y": 71,
+        "nome": "IONAIR"
+      },
+      "timestamp": "2025-11-29T21:00:34.426173",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "IONAIR",
+      "comando_executado": "Pressionar IONAIR em X44 Y71",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_011_IONAIR_camera_0_20251129_210031_728959.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_011_IONAIR_camera_0_20251129_210031_728959.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_011_IONAIR_camera_1_20251129_210031_757310.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_011_IONAIR_camera_1_20251129_210031_757310.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_011_IONAIR_camera_2_20251129_210031_784248.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_011_IONAIR_camera_2_20251129_210031_784248.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_011_IONAIR_camera_3_20251129_210031_806601.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_011_IONAIR_camera_3_20251129_210031_806601.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8916,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.8754,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9458,
+            "similaridade_hist": 0.7112,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_011_IONAIR_camera_0_20251129_200351_606170.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8718,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9423,
+            "similaridade_hist": 0.7074,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_011_IONAIR_camera_1_20251129_200351_631829.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.935,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9748,
+            "similaridade_hist": 0.8422,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_011_IONAIR_camera_2_20251129_200351_655122.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.884,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9752,
+            "similaridade_hist": 0.6713,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_011_IONAIR_camera_3_20251129_200351_677805.jpg"
+          }
+        ]
+      },
+      "controle_numero": 3
+    },
+    {
+      "botao_numero": 12,
+      "coordenadas": {
+        "command": "G90",
+        "x": 24,
+        "y": 55,
+        "nome": "VISOR"
+      },
+      "timestamp": "2025-11-29T21:00:40.227894",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "VISOR",
+      "comando_executado": "Pressionar VISOR em X24 Y55",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_012_VISOR_camera_0_20251129_210037_544055.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_012_VISOR_camera_0_20251129_210037_544055.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_012_VISOR_camera_1_20251129_210037_568749.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_012_VISOR_camera_1_20251129_210037_568749.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_012_VISOR_camera_2_20251129_210037_600940.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_012_VISOR_camera_2_20251129_210037_600940.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_012_VISOR_camera_3_20251129_210037_623523.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_012_VISOR_camera_3_20251129_210037_623523.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8918,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.8847,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9428,
+            "similaridade_hist": 0.7489,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_012_VISOR_camera_0_20251129_200357_425478.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8598,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9384,
+            "similaridade_hist": 0.6764,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_012_VISOR_camera_1_20251129_200357_447158.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9423,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9737,
+            "similaridade_hist": 0.8693,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_012_VISOR_camera_2_20251129_200357_471261.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.8803,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9702,
+            "similaridade_hist": 0.6707,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_012_VISOR_camera_3_20251129_200357_496226.jpg"
+          }
+        ]
+      },
+      "controle_numero": 4
+    },
+    {
+      "botao_numero": 13,
+      "coordenadas": {
+        "command": "G90",
+        "x": 14,
+        "y": 55,
+        "nome": "DORMIR"
+      },
+      "timestamp": "2025-11-29T21:00:46.048445",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "DORMIR",
+      "comando_executado": "Pressionar DORMIR em X14 Y55",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_013_DORMIR_camera_0_20251129_210043_362824.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_013_DORMIR_camera_0_20251129_210043_362824.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_013_DORMIR_camera_1_20251129_210043_386983.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_013_DORMIR_camera_1_20251129_210043_386983.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_013_DORMIR_camera_2_20251129_210043_408310.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_013_DORMIR_camera_2_20251129_210043_408310.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_013_DORMIR_camera_3_20251129_210043_431809.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_013_DORMIR_camera_3_20251129_210043_431809.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8862,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.8901,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9403,
+            "similaridade_hist": 0.7729,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_013_DORMIR_camera_0_20251129_200403_266233.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8648,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.938,
+            "similaridade_hist": 0.6938,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_013_DORMIR_camera_1_20251129_200403_291886.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9443,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9721,
+            "similaridade_hist": 0.8793,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_013_DORMIR_camera_2_20251129_200403_318368.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.8455,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9693,
+            "similaridade_hist": 0.5566,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_013_DORMIR_camera_3_20251129_200403_340220.jpg"
+          }
+        ]
+      },
+      "controle_numero": 1
+    },
+    {
+      "botao_numero": 14,
+      "coordenadas": {
+        "command": "G90",
+        "x": 41,
+        "y": 135,
+        "nome": "POWER_FINAL"
+      },
+      "timestamp": "2025-11-29T21:00:51.884312",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "POWER_FINAL",
+      "comando_executado": "Pressionar POWER_FINAL em X41 Y135",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_014_POWER_FINAL_camera_0_20251129_210049_181731.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_014_POWER_FINAL_camera_0_20251129_210049_181731.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_014_POWER_FINAL_camera_1_20251129_210049_204980.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_014_POWER_FINAL_camera_1_20251129_210049_204980.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_014_POWER_FINAL_camera_2_20251129_210049_231640.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_014_POWER_FINAL_camera_2_20251129_210049_231640.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_014_POWER_FINAL_camera_3_20251129_210049_258109.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_014_POWER_FINAL_camera_3_20251129_210049_258109.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.891,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.8399,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9576,
+            "similaridade_hist": 0.5654,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_014_POWER_FINAL_camera_0_20251129_200409_087819.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8826,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9506,
+            "similaridade_hist": 0.7239,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_014_POWER_FINAL_camera_1_20251129_200409_110204.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9038,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9818,
+            "similaridade_hist": 0.7219,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_014_POWER_FINAL_camera_2_20251129_200409_134089.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9376,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9809,
+            "similaridade_hist": 0.8365,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_014_POWER_FINAL_camera_3_20251129_200409_157115.jpg"
+          }
+        ]
+      },
+      "controle_numero": 2
+    },
+    {
+      "botao_numero": 15,
+      "coordenadas": {
+        "command": "G90",
+        "x": 34,
+        "y": 71,
+        "nome": "LIMPAR"
+      },
+      "timestamp": "2025-11-29T21:00:57.701785",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "LIMPAR",
+      "comando_executado": "Pressionar LIMPAR em X34 Y71",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_015_LIMPAR_camera_0_20251129_210055_009392.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_015_LIMPAR_camera_0_20251129_210055_009392.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_015_LIMPAR_camera_1_20251129_210055_041235.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_015_LIMPAR_camera_1_20251129_210055_041235.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_015_LIMPAR_camera_2_20251129_210055_062985.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_015_LIMPAR_camera_2_20251129_210055_062985.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_015_LIMPAR_camera_3_20251129_210055_085377.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_015_LIMPAR_camera_3_20251129_210055_085377.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8954,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.8794,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9518,
+            "similaridade_hist": 0.7104,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_015_LIMPAR_camera_0_20251129_200414_905124.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8728,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9448,
+            "similaridade_hist": 0.7047,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_015_LIMPAR_camera_1_20251129_200414_927637.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9167,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9793,
+            "similaridade_hist": 0.7706,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_015_LIMPAR_camera_2_20251129_200414_955318.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.9126,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9775,
+            "similaridade_hist": 0.7611,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_015_LIMPAR_camera_3_20251129_200414_980768.jpg"
+          }
+        ]
+      },
+      "controle_numero": 3
+    },
+    {
+      "botao_numero": 16,
+      "coordenadas": {
+        "command": "G90",
+        "x": 34,
+        "y": 55,
+        "nome": "ANTIMORFO"
+      },
+      "timestamp": "2025-11-29T21:01:03.487127",
+      "request_id": null,
+      "dados_ir": null,
+      "ir_capturado": false,
+      "ir_erro": "Erro na captura: Cannot connect to host localhost:55796 ssl:default [Multiple exceptions: [Errno 10061] Connect call failed ('::1', 55796, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 55796)]",
+      "nome_botao": "ANTIMORFO",
+      "comando_executado": "Pressionar ANTIMORFO em X34 Y55",
+      "fotos_capturadas": [
+        {
+          "camera_id": 0,
+          "filename": "botao_016_ANTIMORFO_camera_0_20251129_210100_819131.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_016_ANTIMORFO_camera_0_20251129_210100_819131.jpg"
+        },
+        {
+          "camera_id": 1,
+          "filename": "botao_016_ANTIMORFO_camera_1_20251129_210100_840704.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_016_ANTIMORFO_camera_1_20251129_210100_840704.jpg"
+        },
+        {
+          "camera_id": 2,
+          "filename": "botao_016_ANTIMORFO_camera_2_20251129_210100_862219.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_016_ANTIMORFO_camera_2_20251129_210100_862219.jpg"
+        },
+        {
+          "camera_id": 3,
+          "filename": "botao_016_ANTIMORFO_camera_3_20251129_210100_884520.jpg",
+          "filepath": "test_results\\ciclo_1_20251129_205931\\fotos\\botao_016_ANTIMORFO_camera_3_20251129_210100_884520.jpg"
+        }
+      ],
+      "validacao": {
+        "aprovado": true,
+        "similaridade_media": 0.8976,
+        "validacoes_por_camera": [
+          {
+            "camera_id": 0,
+            "aprovado": true,
+            "similaridade_media": 0.9139,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9503,
+            "similaridade_hist": 0.8288,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_016_ANTIMORFO_camera_0_20251129_200420_719636.jpg"
+          },
+          {
+            "camera_id": 1,
+            "aprovado": true,
+            "similaridade_media": 0.8612,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9483,
+            "similaridade_hist": 0.6581,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_016_ANTIMORFO_camera_1_20251129_200420_741647.jpg"
+          },
+          {
+            "camera_id": 2,
+            "aprovado": true,
+            "similaridade_media": 0.9317,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9789,
+            "similaridade_hist": 0.8218,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_016_ANTIMORFO_camera_2_20251129_200420_768892.jpg"
+          },
+          {
+            "camera_id": 3,
+            "aprovado": true,
+            "similaridade_media": 0.8837,
+            "imagem_referencia_encontrada": true,
+            "similaridade_template": 0.9801,
+            "similaridade_hist": 0.6586,
+            "threshold": 0.75,
+            "imagem_referencia": "camera_photos_modelo1\\botao_016_ANTIMORFO_camera_3_20251129_200420_792416.jpg"
+          }
+        ]
+      },
+      "controle_numero": 4
+    }
+  ],
+  "relatorio_controles": {
+    "controles": {
+      "1": {
+        "status": "aprovado",
+        "aprovado": true,
+        "total_botoes": 4,
+        "botoes_aprovados": 4,
+        "botoes_reprovados": 0,
+        "taxa_aprovacao": 100.0,
+        "similaridade_media": 0.8941,
+        "botoes": [
+          {
+            "nome": "POWER",
+            "aprovado": true,
+            "similaridade": 0.9053
+          },
+          {
+            "nome": "TEMPORIZADOR_2",
+            "aprovado": true,
+            "similaridade": 0.8818
+          },
+          {
+            "nome": "TURBO",
+            "aprovado": true,
+            "similaridade": 0.9032
+          },
+          {
+            "nome": "DORMIR",
+            "aprovado": true,
+            "similaridade": 0.8862
+          }
+        ]
+      },
+      "2": {
+        "status": "aprovado",
+        "aprovado": true,
+        "total_botoes": 4,
+        "botoes_aprovados": 4,
+        "botoes_reprovados": 0,
+        "taxa_aprovacao": 100.0,
+        "similaridade_media": 0.9052,
+        "botoes": [
+          {
+            "nome": "FUNCAO",
+            "aprovado": true,
+            "similaridade": 0.9093
+          },
+          {
+            "nome": "TEMP_DOWN",
+            "aprovado": true,
+            "similaridade": 0.9205
+          },
+          {
+            "nome": "CONFORTO",
+            "aprovado": true,
+            "similaridade": 0.8998
+          },
+          {
+            "nome": "POWER_FINAL",
+            "aprovado": true,
+            "similaridade": 0.891
+          }
+        ]
+      },
+      "3": {
+        "status": "aprovado",
+        "aprovado": true,
+        "total_botoes": 4,
+        "botoes_aprovados": 4,
+        "botoes_reprovados": 0,
+        "taxa_aprovacao": 100.0,
+        "similaridade_media": 0.8941,
+        "botoes": [
+          {
+            "nome": "TEMP_MAX",
+            "aprovado": true,
+            "similaridade": 0.8924
+          },
+          {
+            "nome": "VELOCIDADE",
+            "aprovado": true,
+            "similaridade": 0.8971
+          },
+          {
+            "nome": "IONAIR",
+            "aprovado": true,
+            "similaridade": 0.8916
+          },
+          {
+            "nome": "LIMPAR",
+            "aprovado": true,
+            "similaridade": 0.8954
+          }
+        ]
+      },
+      "4": {
+        "status": "aprovado",
+        "aprovado": true,
+        "total_botoes": 4,
+        "botoes_aprovados": 4,
+        "botoes_reprovados": 0,
+        "taxa_aprovacao": 100.0,
+        "similaridade_media": 0.8916,
+        "botoes": [
+          {
+            "nome": "TEMPORIZADOR",
+            "aprovado": true,
+            "similaridade": 0.8806
+          },
+          {
+            "nome": "OSCILAR",
+            "aprovado": true,
+            "similaridade": 0.8965
+          },
+          {
+            "nome": "VISOR",
+            "aprovado": true,
+            "similaridade": 0.8918
+          },
+          {
+            "nome": "ANTIMORFO",
+            "aprovado": true,
+            "similaridade": 0.8976
+          }
+        ]
+      }
+    },
+    "resumo": {
+      "total_controles": 4,
+      "controles_aprovados": 4,
+      "controles_reprovados": 0
+    }
+  }
+}
